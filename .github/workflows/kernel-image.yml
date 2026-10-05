@@ -34,9 +34,9 @@ jobs:
           sudo apt-get install -y -qq git-core flex bison build-essential \
             zlib1g-dev libssl-dev libelf-dev dwarves device-tree-compiler \
             gcc-aarch64-linux-gnu lz4 zstd cpio python3 lsb-release wget gnupg
-          sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)" -- 20 clang lld 2>&1 | tail -n 3
-          clang-20 --version | head -n 2
-          echo "/usr/lib/llvm-20/bin" >> "$GITHUB_PATH"
+          sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)" -- 19 clang lld 2>&1 | tail -n 3
+          clang-19 --version | head -n 2
+          echo "/usr/lib/llvm-19/bin" >> "$GITHUB_PATH"
           # ccache do Ubuntu (4.5) quebra com clang-20 (double free): usa release oficial
           curl -sL https://github.com/ccache/ccache/releases/download/v4.14.1/ccache-4.14.1-linux-x86_64-glibc.tar.gz -o /tmp/ccache.tgz
           tar -xzf /tmp/ccache.tgz -C /tmp
@@ -134,8 +134,8 @@ jobs:
           # MHI misc (modem/WLAN): pm.c chama API que so existe com MISC ligado
           CONFIG_MHI_BUS_MISC=y
           EOF
-          PATH="/usr/lib/llvm-20/bin:$PATH" scripts/kconfig/merge_config.sh -m arch/arm64/configs/gki_defconfig /tmp/marble.fragment
-          PATH="/usr/lib/llvm-20/bin:$PATH" make ARCH=arm64 LLVM=1 LLVM_IAS=1 olddefconfig 2>&1 | tee /tmp/olddef.log; rc=${PIPESTATUS[0]}
+          PATH="/usr/lib/llvm-19/bin:$PATH" scripts/kconfig/merge_config.sh -m arch/arm64/configs/gki_defconfig /tmp/marble.fragment
+          PATH="/usr/lib/llvm-19/bin:$PATH" make ARCH=arm64 LLVM=1 LLVM_IAS=1 olddefconfig 2>&1 | tee /tmp/olddef.log; rc=${PIPESTATUS[0]}
           if [ $rc -ne 0 ]; then
             echo "=== olddefconfig FAILED, dumping culprit Kconfig(s) ==="
             grep -aoE "[a-zA-Z0-9_./-]*Kconfig[a-zA-Z0-9_./-]*" /tmp/olddef.log | sort -u | head -n 5
@@ -152,7 +152,7 @@ jobs:
       - name: Build Image + modules + dtbs
         run: |
           cd kernel
-          export PATH="/usr/lib/llvm-20/bin:$PATH"
+          export PATH="/usr/lib/llvm-19/bin:$PATH"
           nproc; free -g | head -n 2
           df -h / /tmp | head -n 5; free -g | head -n 2
           make -k -j$(nproc) KCPPFLAGS="-I$PWD" Image.gz modules dtbs 2>&1 | tee /tmp/build.log | tail -n 15; rc=${PIPESTATUS[0]}
