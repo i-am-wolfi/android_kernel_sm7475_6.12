@@ -45,44 +45,33 @@ jobs:
           key: ccache-marble-${{ hashFiles('.github/workflows/kernel-image.yml') }}-v1
           restore-keys: ccache-marble-
 
-      - name: Sync kernel + devicetrees (base real 6.11!) + dt-bindings diwali
+      - name: Sync kernel + devicetrees (base 6.12.r1!) + dt-bindings diwali
         run: |
           git clone --depth 1 --branch lineage-24.0 https://github.com/ltdq/android_kernel_qcom_sm8450-6.12 kernel
-          # Tree e 6.11 (Linux 6.11 + keystone qcom 6.11): preenche com torvalds v6.11, NAO 6.12
-          git clone --depth 1 --branch v6.11 https://github.com/torvalds/linux upstream-src 2>&1 | tail -n 1
-          (cd upstream-src && git ls-files | awk '$0 !~ /^(arch\/[^\/]+\/boot\/dts\/)/ && ($0 !~ /^Documentation\// || $0 ~ /(Kconfig|Kbuild|Makefile)/)' > /tmp/common-files.txt)
+          # Tree = kernel.lnx.6.12.r1 (Makefile 6.11 desatualizado): fill com ACK 6.12 (headers c/ backports qcom)
+          git clone --depth 1 --branch android16-6.12-2026-06 https://android.googlesource.com/kernel/common ack-src 2>&1 | tail -n 1
+          (cd ack-src && git ls-files | awk '$0 !~ /^(arch\/[^\/]+\/boot\/dts\/)/ && ($0 !~ /^Documentation\// || $0 ~ /(Kconfig|Kbuild|Makefile)/)' > /tmp/common-files.txt)
           wc -l /tmp/common-files.txt
           filled=0
           while read -r f; do
             if [ ! -e "kernel/$f" ]; then
               mkdir -p "kernel/$(dirname "$f")" 2>/dev/null || true
-              cp "upstream-src/$f" "kernel/$f" 2>/dev/null && filled=$((filled+1)) || echo "SKIP $f"
+              cp "ack-src/$f" "kernel/$f" 2>/dev/null && filled=$((filled+1)) || echo "SKIP $f"
             fi
           done < /tmp/common-files.txt
           echo "filled=$filled"
           ls kernel/scripts/basic/fixdep.c kernel/scripts/kconfig/conf.c kernel/scripts/dtc/dtc.c kernel/arch/arm64/Kconfig 2>&1
-          # parsers (kconfig/dtc) DEVEM ser 100% consistentes: ltdq mistura versoes
-          # (lexer/parser velhos + backend novo = conf corrompido). Upstream vence aqui.
-          for d in scripts/kconfig scripts/dtc; do cp -rf upstream-src/$d/. kernel/$d/; done
+          # parsers (kconfig/dtc) 100% ACK (ltdq mistura versoes -> conf corrompido)
+          for d in scripts/kconfig scripts/dtc; do cp -rf ack-src/$d/. kernel/$d/; done
           echo "parsers synced"
-          # umbrellas Kconfig stubbed p/ kleaf (<500B, ex drivers/interconnect) -> versao full 6.11
-          rest=0
-          while read -r kf; do
-            case "$kf" in *Kconfig.platforms|*Kconfig.msm|*Kconfig.qtvm) continue;; esac
-            sz=$(wc -c < "kernel/$kf" 2>/dev/null || echo 0)
-            cs=$(wc -c < "upstream-src/$kf" 2>/dev/null || echo 0)
-            if [ "$sz" -lt 500 ] && [ "$cs" -gt 2000 ]; then
-              cp "upstream-src/$kf" "kernel/$kf" && rest=$((rest+1)) && echo "RESTORE $kf ($sz -> $cs)"
-            fi
-          done < <(cd kernel && git ls-files 2>/dev/null | grep -E "Kconfig$" || find kernel -name "Kconfig" | sed 's|^kernel/||')
-          echo "restored=$rest"
+          # (merge fino via merge-kconfig.py no passo Wire; aqui so fill)
           git clone --depth 1 --branch lineage-24.0 https://github.com/ltdq/android_kernel_qcom_sm8450-devicetrees-6.12 kernel/vendor/qcom/devicetrees-stock
           mkdir -p kernel/vendor/qcom/devicetrees
           cp -r kernel/vendor/qcom/devicetrees-stock/* kernel/vendor/qcom/devicetrees/
           cp -r devicetrees/. kernel/vendor/qcom/devicetrees/
-          # defconfig base: upstream 6.11 arm64 (multi-plataforma) + fragment marble
-          cp upstream-src/arch/arm64/configs/defconfig kernel/arch/arm64/configs/upstream_defconfig
-          grep -c CONFIG kernel/arch/arm64/configs/upstream_defconfig
+          # defconfig base: gki_defconfig do ACK 6.12 + fragment marble
+          cp ack-src/arch/arm64/configs/gki_defconfig kernel/arch/arm64/configs/gki_defconfig
+          grep -c CONFIG kernel/arch/arm64/configs/gki_defconfig
           # headers dt-bindings diwali (mesma logica do build.yml)
           fetch_one() {
             dst="kernel/include/$1"
@@ -121,7 +110,7 @@ jobs:
           ls -la arch/arm64/boot/dts/ | grep vendor
           # Merge Kconfigs: umbrellas trocadas por versoes qcom-only -> base upstream 6.11
           # + blocos/sources qcom unicos (sem duplicar simbolos do upstream).
-          python3 "$GITHUB_WORKSPACE/scripts/merge-kconfig.py" ../upstream-src
+          python3 "$GITHUB_WORKSPACE/scripts/merge-kconfig.py" ../ack-src
           cat > /tmp/marble.fragment <<'EOF'
           CONFIG_ARCH_DIWALI=y
           CONFIG_ARCH_WAIPIO=y
@@ -135,7 +124,7 @@ jobs:
           # MHI misc (modem/WLAN): pm.c chama API que so existe com MISC ligado
           CONFIG_MHI_BUS_MISC=y
           EOF
-          PATH="/usr/lib/llvm-20/bin:$PATH" scripts/kconfig/merge_config.sh -m arch/arm64/configs/upstream_defconfig /tmp/marble.fragment
+          PATH="/usr/lib/llvm-20/bin:$PATH" scripts/kconfig/merge_config.sh -m arch/arm64/configs/gki_defconfig /tmp/marble.fragment
           PATH="/usr/lib/llvm-20/bin:$PATH" make ARCH=arm64 LLVM=1 LLVM_IAS=1 olddefconfig 2>&1 | tee /tmp/olddef.log; rc=${PIPESTATUS[0]}
           if [ $rc -ne 0 ]; then
             echo "=== olddefconfig FAILED, dumping culprit Kconfig(s) ==="
