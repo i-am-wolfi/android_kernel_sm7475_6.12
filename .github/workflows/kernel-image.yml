@@ -132,6 +132,8 @@ jobs:
           # CONFIG_LTO_CLANG_FULL is not set
           # Drivers com skew 6.11/6.12 da tree, irrelevantes p/ marble (UFS, sem virtio-blk)
           # CONFIG_VIRTIO_BLK is not set
+          # MHI misc (modem/WLAN): pm.c chama API que so existe com MISC ligado
+          CONFIG_MHI_BUS_MISC=y
           EOF
           PATH="/usr/lib/llvm-20/bin:$PATH" scripts/kconfig/merge_config.sh -m arch/arm64/configs/upstream_defconfig /tmp/marble.fragment
           PATH="/usr/lib/llvm-20/bin:$PATH" make ARCH=arm64 LLVM=1 LLVM_IAS=1 olddefconfig 2>&1 | tee /tmp/olddef.log; rc=${PIPESTATUS[0]}
@@ -153,7 +155,7 @@ jobs:
           cd kernel
           export PATH="/usr/lib/llvm-20/bin:$PATH"
           nproc; free -g | head -n 2
-          make -k -j$(nproc) CC="ccache clang" Image.gz modules dtbs 2>&1 | tee /tmp/build.log | tail -n 15; rc=${PIPESTATUS[0]}
+          make -k -j$(nproc) CC="ccache clang" KCPPFLAGS="-I$PWD" Image.gz modules dtbs 2>&1 | tee /tmp/build.log | tail -n 15; rc=${PIPESTATUS[0]}
           echo "--- ccache ---"; ccache -s | head -n 12
           if [ $rc -ne 0 ]; then
             echo "=== BUILD ERRORS ==="; grep -aB8 -aA3 "Error [12]\|error:" /tmp/build.log | head -n 80
