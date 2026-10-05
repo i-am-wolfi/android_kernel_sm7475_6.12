@@ -70,9 +70,10 @@ for root, dirs, files in os.walk('.'):
         if fn != 'Kconfig' and not fn.startswith('Kconfig'):
             continue
         kp = os.path.join(root, fn)
-        if kp.endswith(KEEP_NAMES):
+        rel = kp[2:] if kp.startswith('./') else kp
+        if rel.endswith(KEEP_NAMES):
             continue
-        if kp.startswith('arch/') and not (kp == 'arch/Kconfig' or kp.startswith('arch/arm64/')):
+        if rel.startswith('arch/') and not (rel == 'arch/Kconfig' or rel.startswith('arch/arm64/')):
             continue
         up = os.path.join(UPSTREAM, os.path.relpath(kp, '.'))
         if not os.path.isfile(up):
@@ -121,9 +122,10 @@ def dedupe_sources():
     import glob
 
     def live(p):
-        if os.path.basename(p) in ('Kconfig.msm', 'Kconfig.qtvm'):
+        q = p[2:] if p.startswith('./') else p
+        if os.path.basename(q) in ('Kconfig.msm', 'Kconfig.qtvm'):
             return False
-        if p.startswith('arch/') and not (p == 'arch/Kconfig' or p.startswith('arch/arm64/')):
+        if q.startswith('arch/') and not (q == 'arch/Kconfig' or q.startswith('arch/arm64/')):
             return False
         return True
 
