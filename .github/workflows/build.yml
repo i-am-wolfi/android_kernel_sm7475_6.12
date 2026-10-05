@@ -47,37 +47,32 @@ jobs:
           cp devicetrees/qcom/Makefile kernel/vendor/qcom/devicetrees/qcom/Makefile
           cp build.config.msm.diwali kernel/build.config.msm.diwali
           ls kernel/vendor/qcom/devicetrees/qcom/diwali* | head
-          echo "--- importa headers dt-bindings que faltam no 6.12 (do marble-s-oss/Xiaomi, recursivo) ---"
+          fetch_one() { # $1 = path relativo a include/ (ex dt-bindings/foo/bar.h)
+            dst="kernel/include/$1"
+            [ -f "$dst" ] && return 0
+            mkdir -p "$(dirname "$dst")"
+            code=$(curl -sL -w "%{http_code}" "https://raw.githubusercontent.com/MiCode/Xiaomi_Kernel_OpenSource/marble-s-oss/include/$1" -o "$dst")
+            [ "$code" = "200" ] || { rm -f "$dst"; echo "MISS $1 (http $code)"; return 1; }
+            # symlink do git (conteúdo = caminho relativo, ex ../../uapi/...)
+            if [ "$(wc -c < "$dst")" -lt 120 ] && ! grep -qE "#| |;|\{|" "$dst"; then
+              link=$(cat "$dst"); base=$(dirname "$1")
+              target=$(python3 -c "import posixpath,sys; print(posixpath.normpath(posixpath.join(sys.argv[1], sys.argv[2])))" "$base" "$link")
+              echo "SYMLINK $1 -> $target"
+              rm -f "$dst"; fetch_one "$target" && cp "kernel/include/$target" "$dst"
+              echo "RESOLVED $1 <- $target"
+              return 0
+            fi
+            [ "$(wc -c < "$dst")" -ge 50 ] || { rm -f "$dst"; echo "MISS $1 (miudo)"; return 1; }
+            echo "FETCH $1"
+          }
           grep -rhoE "dt-bindings/[^\">]+" devicetrees/qcom/diwali* devicetrees/qcom/diwalip* 2>/dev/null | sort -u > /tmp/need.txt
           for round in 1 2 3 4; do
-            # inclui também os includes aninhados dos headers já trazidos
             grep -rhoE "dt-bindings/[^\">]+" kernel/include/dt-bindings/ 2>/dev/null | sort -u >> /tmp/need.txt
-            grep -rhoE '"[a-z0-9_.-]+\.h"' kernel/include/dt-bindings/input/ kernel/include/dt-bindings/interrupt-controller/ 2>/dev/null | tr -d '"' | sort -u | while read -r q; do
-              # quoted include: procura o dir do arquivo que o referencia (simplificado: tenta input/)
-              [ -f "kernel/include/dt-bindings/input/$q" ] || echo "NEEDQ input/$q"
-            done | sort -u > /tmp/needq.txt || true
             sort -u /tmp/need.txt -o /tmp/need.txt
             added=0
             while read -r h; do
-              dst="kernel/include/$h"
-              if [ ! -f "$dst" ]; then
-                mkdir -p "$(dirname "$dst")"
-                code=$(curl -sL -w "%{http_code}" "https://raw.githubusercontent.com/MiCode/Xiaomi_Kernel_OpenSource/marble-s-oss/include/$h" -o "$dst")
-                if [ "$code" != "200" ] || [ "$(wc -c < "$dst")" -lt 50 ]; then rm -f "$dst"; echo "MISS $h (http $code)"; else echo "FETCH $h"; added=1; fi
-              fi
+              if [ ! -f "kernel/include/$h" ]; then fetch_one "$h" && added=1; fi
             done < /tmp/need.txt
-            # quoted neighbors (ex: linux-event-codes.h referenciado por input/input.h)
-            while read -r q; do
-              q="${q#NEEDQ }"
-              for d in input interrupt-controller; do
-                dst="kernel/include/dt-bindings/$d/$q"
-                if [ ! -f "$dst" ]; then
-                  mkdir -p "$(dirname "$dst")"
-                  code=$(curl -sL -w "%{http_code}" "https://raw.githubusercontent.com/MiCode/Xiaomi_Kernel_OpenSource/marble-s-oss/include/dt-bindings/$d/$q" -o "$dst")
-                  if [ "$code" = "200" ] && [ "$(wc -c < "$dst")" -ge 50 ]; then echo "FETCH $d/$q"; added=1; break; else rm -f "$dst"; fi
-                fi
-              done
-            done < /tmp/needq.txt
             [ "$added" = "0" ] && break
           done
           echo "ainda faltando:"; while read -r h; do [ -f "kernel/include/$h" ] || echo "  $h"; done < /tmp/need.txt
