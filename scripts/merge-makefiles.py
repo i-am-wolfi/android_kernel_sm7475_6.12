@@ -117,7 +117,7 @@ for root, dirs, files in os.walk('.'):
                 i = j
                 continue
             m3 = re.match(r'^([^\s#:][^:]*):', first)
-            if m3 and '%' not in first.split(':')[0] and 'clean' not in first.split(':')[0] and 'FORCE' not in unit and '.PHONY' not in unit:
+            if m3 and '%' not in first.split(':')[0] and 'clean' not in first.split(':')[0] and '.PHONY' not in unit:
                 # nunca diretivas make (ifdef/ifeq/ifneq/ifndef/else/endif/define/...):
                 # um ':' dentro de $(...) nao faz disso uma regra (ex ifneq $(words $(subst :, ...)))
                 if re.match(r'^(ifdef|ifndef|ifeq|ifneq|else|endif|define|endef|export|unexport|private|override|include|-include|vpath|\.PHONY|undefine)\b', first):
