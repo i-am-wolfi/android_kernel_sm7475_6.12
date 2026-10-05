@@ -55,7 +55,7 @@ for root, dirs, files in os.walk('.'):
         if local == base:
             continue
         have_tokens = set(re.findall(r'[\w][\w\-./]*/|[\w][\w\-./]*\.(?:o|a)\b', local))
-        local_assigns = set(re.findall(r'(?m)^([A-Za-z0-9_]+)\s*[:+?]?=', local))
+        local_assigns = set(re.findall(r'(?m)^([^\s#:][^:]*?)\s*[:+?]?=', local))
         local_targets = set(re.findall(r'(?m)^([^\s#:][^:]*):', local))
         local_has_liby = bool(re.search(r'(?m)^lib-y\s*[:+?]?=', local))
         local_lines = set(l.strip() for l in local.splitlines())
@@ -87,12 +87,13 @@ for root, dirs, files in os.walk('.'):
                         add.append(prefix + ' '.join(new_toks) + '\n')
                 i = j
                 continue
-            # vars compostas (foo-objs/foo-y): definem conteudo de objeto linkado;
-            # vao junto com o obj- correspondente (senao "No rule"). So se ausentes.
-            m15 = re.match(r'^([\w\-\./$(){}]+?(?:-objs|-y))\s*(\+=|:=)\s*(.+?)\s*$', first)
-            if m15 and m15.group(1) not in ('obj-y', 'lib-y'):
+            # vars compostas (foo-objs, foo-y, foo-$(CONFIG..)): definem conteudo
+            # de objeto linkado; vao junto com o obj- correspondente (senao
+            # "No rule"). So se a var nao existe no local. Nunca flags.
+            m15 = re.match(r'^([\w\-\./$(){}]+?)\s*(\+=|:=|=|\?=)\s*(.+?)\s*$', first)
+            if m15 and re.search(r'-(?:objs|y)(?:-|$|\s)|\-\$\(CONFIG', m15.group(1)) and not re.match(r'^(ccflags|asflags|ldflags|cppflags|cflags|aflags|rustflags|bindgen|rtoflags)', m15.group(1)):
                 varname = re.sub(r'\s+', '', m15.group(1))
-                if not re.search(r'(?m)^%s\s*[:+?]?=' % re.escape(varname), local):
+                if varname not in local_assigns:
                     add.append(unit if unit.endswith('\n') else unit + '\n')
                 i = j
                 continue

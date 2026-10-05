@@ -68,7 +68,7 @@ jobs:
           echo "filled=$filled"
           ls kernel/scripts/basic/fixdep.c kernel/scripts/kconfig/conf.c kernel/scripts/dtc/dtc.c kernel/arch/arm64/Kconfig 2>&1
           echo "--- spot check fontes core:"
-          ls -la kernel/drivers/extcon/extcon-core.c kernel/drivers/gpio/gpio-generic.c kernel/drivers/scsi/scsi_mod.c kernel/drivers/firmware/arm_scmi/scmi-core.c kernel/include/linux/sched.h 2>&1
+          ls -la kernel/drivers/extcon/extcon-core.c kernel/drivers/gpio/gpio-generic.c kernel/drivers/scsi/scsi_mod.c kernel/drivers/firmware/arm_scmi/scmi-core.c kernel/include/linux/sched.h 2>&1 || true
           du -sh kernel 2>/dev/null | head -n 1
           # parsers (kconfig/dtc/genksyms) 100% ACK: ltdq mistura lexer velho + backend novo
           # = binarios corrompidos (conf com parse fantasma, genksyms com double-free)
