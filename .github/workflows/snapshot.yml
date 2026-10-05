@@ -42,6 +42,8 @@ jobs:
           git config user.email "marble-bot@local"
           git remote set-url origin "https://x-access-token:${FORK_PAT}@github.com/i-am-wolfi/android_kernel_qcom_sm8450-6.12.git"
           git checkout -B marble-wip
+          # sem .git aninhado (virava submodule) e sem -stock (redundante); ANTES do add
+          rm -rf vendor/qcom/devicetrees/.git vendor/qcom/devicetrees-stock
           git add -A
           git commit -qm "marble: fill ACK android16-6.12 (fontes removidas p/ kleaf) + parsers 100% ACK" || true
           echo OK c1
@@ -60,8 +62,6 @@ jobs:
           FORK_PAT: ${{ secrets.FORK_PAT }}
         run: |
           cd kernel
-          # sem .git aninhado (virava submodule): conteudo inline; sem -stock (redundante)
-          rm -rf vendor/qcom/devicetrees/.git vendor/qcom/devicetrees-stock
           EXCLUDE=':(exclude)*.o :(exclude)*.cmd :(exclude)*.ko :(exclude)*.mod :(exclude)*.mod.c :(exclude)*.order :(exclude)*.symvers :(exclude).config* :(exclude)out :(exclude)*.dtb :(exclude)*.dtbo :(exclude)*.gz :(exclude)Module.symvers :(exclude)modules.* :(exclude)*.d :(exclude).tmp_* :(exclude)vmlinux* :(exclude)System.map :(exclude)*.a :(exclude)*.so* :(exclude)*.lex.c :(exclude)*.tab.[ch]'
           git add -A $EXCLUDE
           git commit -qm "marble: merge Kconfig/Makefile upstream+qcom + port fixes (tzmem etc)" || true
