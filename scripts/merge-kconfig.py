@@ -7,7 +7,7 @@ import os
 import re
 import sys
 
-KEEP_NAMES = ('Kconfig.platforms', 'Kconfig.msm', 'Kconfig.qtvm')
+KEEP_NAMES = ('Kconfig.msm', 'Kconfig.qtvm')
 UPSTREAM = sys.argv[1] if len(sys.argv) > 1 else '../upstream-src'
 
 
