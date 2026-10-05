@@ -28,3 +28,10 @@ Ref: waipio (8450) / cape (8475) / diwali (7475).
 - [ ] `device marble`: `BOARD_KERNEL_PAGESIZE=4096`, `HEADER_VERSION=4`, `BOARD_USES_DTBOIMAGE=true`, `BOARD_PREBUILT_DTBOIMAGE` ou `BOARD_KERNEL_DTBO` -> `diwali-*.dtbo` daqui.
 - [ ] Tela/painel marble (`amoled`): `diwali-idp-amoled-overlay.dtbo` é o candidato; se não acender, trocar base para `diwali-*.dtb` + overlay amoled no `recovery.fstab`/cmdline.
 - [ ] Primeiro teste: fastboot boot de `vendor_boot`+`boot` com ramdisk de recovery TWRP/Lineage, não flashar.
+
+## Estado atual (run 37259371134 ✅)
+`marble-kernel-out` (16 arquivos, em `out/` local após download):
+- dtb: diwali, diwali-idp, diwali-atp, diwali-qrd, diwali-hsp, diwalip-idp
+- dtbo: idp, idp-amoled, idp-usbc, idp-hsp, idp-nopmi, qrd, qrd-nopmi, qrd-pm8350b, atp, rumi
+- Para recovery no marble: base `diwali-idp.dtb` + overlay `diwali-idp-amoled-overlay.dtbo` (painel AMOLED) é o candidato principal.
+- `Image` (kernel) ainda requer build Kleaf completo com manifest soc-repo — fora do escopo deste repo.
