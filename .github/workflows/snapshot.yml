@@ -69,4 +69,5 @@ jobs:
           git add -f arch/arm64/boot/dts/vendor
           git commit -qm "marble: devicetrees diwali + vendor symlink" || true
           git log --oneline -5
-          git push -u origin marble-wip 2>&1 | tail -n 3
+          # snapshot regenerado do zero a cada run -> force e o semantico certo aqui
+          git push -f -u origin marble-wip 2>&1 | tail -n 3
