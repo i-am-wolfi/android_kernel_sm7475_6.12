@@ -87,6 +87,15 @@ for root, dirs, files in os.walk('.'):
                         add.append(prefix + ' '.join(new_toks) + '\n')
                 i = j
                 continue
+            # vars compostas (foo-objs/foo-y): definem conteudo de objeto linkado;
+            # vao junto com o obj- correspondente (senao "No rule"). So se ausentes.
+            m15 = re.match(r'^([\w\-\./$(){}]+?(?:-objs|-y))\s*(\+=|:=)\s*(.+?)\s*$', first)
+            if m15 and m15.group(1) not in ('obj-y', 'lib-y'):
+                varname = re.sub(r'\s+', '', m15.group(1))
+                if not re.search(r'(?m)^%s\s*[:+?]?=' % re.escape(varname), local):
+                    add.append(unit if unit.endswith('\n') else unit + '\n')
+                i = j
+                continue
             m2 = re.match(r'^((?:hostprogs|targets|always|extra|clean-files|cmd_\w+|quiet_cmd_\w+))(?:-[\w$(){}]+)?\s*(\+=|:=|=|\?=)\s*(.*)$', first)
             if m2:
                 var, op = m2.group(1), m2.group(2)
