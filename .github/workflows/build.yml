@@ -47,16 +47,18 @@ jobs:
           cp devicetrees/qcom/Makefile kernel/vendor/qcom/devicetrees/qcom/Makefile
           cp build.config.msm.diwali kernel/build.config.msm.diwali
           ls kernel/vendor/qcom/devicetrees/qcom/diwali* | head
-          echo "--- importa headers dt-bindings diwali do marble-s-oss (Xiaomi) p/ os que faltam no 6.12 ---"
-          MISSING="clock/qcom,camcc-diwali.h clock/qcom,dispcc-diwali.h clock/qcom,gcc-diwali.h clock/qcom,gpucc-diwali.h clock/qcom,videocc-diwali.h interconnect/qcom,diwali.h pinctrl/qcom,diwali-pinctrl.h"
-          for h in $MISSING; do
-            dst="kernel/include/dt-bindings/$h"
+          echo "--- importa headers dt-bindings que faltam no 6.12 (do marble-s-oss/Xiaomi) ---"
+          grep -rhoE "dt-bindings/[^\">]+" devicetrees/qcom/diwali* devicetrees/qcom/diwalip* 2>/dev/null | sort -u > /tmp/need.txt
+          wc -l /tmp/need.txt
+          while read -r h; do
+            dst="kernel/include/$h"
             if [ ! -f "$dst" ]; then
               mkdir -p "$(dirname "$dst")"
-              curl -sL "https://raw.githubusercontent.com/MiCode/Xiaomi_Kernel_OpenSource/marble-s-oss/include/dt-bindings/$h" -o "$dst" && echo "FETCH $h $(wc -c < "$dst")B" || echo "MISS $h"
-            else echo "HAVE $h"; fi
-          done
-          ls kernel/scripts/dtc/include-prefixes/dt-bindings/ 2>/dev/null | head -n 5 || echo "(sem include-prefixes; usando kernel/include)"
+              code=$(curl -sL -w "%{http_code}" "https://raw.githubusercontent.com/MiCode/Xiaomi_Kernel_OpenSource/marble-s-oss/include/$h" -o "$dst")
+              if [ "$code" != "200" ] || [ "$(wc -c < "$dst")" -lt 50 ]; then rm -f "$dst"; echo "MISS $h (http $code)"; else echo "FETCH $h $(wc -c < "$dst")B"; fi
+            fi
+          done < /tmp/need.txt
+          echo "ainda faltando:"; while read -r h; do [ -f "kernel/include/$h" ] || echo "  $h"; done < /tmp/need.txt
       - name: Build DTBs diwali (recovery-ready) + tenta Kleaf
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq device-tree-compiler
