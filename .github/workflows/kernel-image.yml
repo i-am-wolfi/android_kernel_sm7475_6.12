@@ -111,14 +111,17 @@ jobs:
           grep -E "ARCH_DIWALI|ARCH_WAIPIO|CONFIG_RUST=|LOCALVERSION" .config | head
           echo "--- DIAG kconfig tree ---"
           find . -name "Kconfig*" | wc -l
-          ls -la Kconfig arch/arm64/Kconfig arch/arm64/Kconfig.platforms drivers/Kconfig 2>&1
-          head -n 20 Kconfig
+          ls -la Kconfig arch/arm64/Kconfig arch/arm64/Kconfig.platforms drivers/Kconfig arch/Kconfig 2>&1
+          echo "--- arch/Kconfig head:"; head -n 12 arch/Kconfig 2>&1
+          echo "--- arm64/Kconfig sources:"; grep -n "Kconfig.platforms\|^source" arch/arm64/Kconfig 2>&1 | head -n 10
+          echo "--- platforms has DIWALI:"; grep -c "ARCH_DIWALI" arch/arm64/Kconfig.platforms 2>&1
           PATH="/usr/lib/llvm-20/bin:$PATH" make ARCH=arm64 LLVM=1 LLVM_IAS=1 olddefconfig
           echo "--- DIAG resolved ---"
           wc -l .config; grep -c "^CONFIG_" .config || true
           grep -E "^CONFIG_ARCH_DIWALI|^CONFIG_ARCH_WAIPIO|CONFIG_RUST" .config || echo "ARCH_SYMBOLS_MISSING"
           PATH="/usr/lib/llvm-20/bin:$PATH" make ARCH=arm64 LLVM=1 LLVM_IAS=1 savedefconfig
           wc -l defconfig || true
+          echo "--- SAVED DEFCONFIG:"; cat defconfig || true
 
       - name: Build Image + modules + dtbs
         run: |
