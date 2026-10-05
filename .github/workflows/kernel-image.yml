@@ -63,6 +63,10 @@ jobs:
           ls kernel/scripts/basic/fixdep.c kernel/scripts/kconfig/conf.c kernel/scripts/dtc/dtc.c kernel/arch/arm64/Kconfig 2>&1
           # parsers (kconfig/dtc) 100% ACK (ltdq mistura versoes -> conf corrompido)
           for d in scripts/kconfig scripts/dtc; do cp -rf ack-src/$d/. kernel/$d/; done
+          # infra do Kconfig 6.12 (funcoes $(...) usadas pelos Kconfigs; a da tree e 6.11 e nao tem)
+          for f in scripts/Kconfig.include scripts/rustc-version.sh scripts/rustc-llvm-version.sh scripts/rust_is_available.sh scripts/cc-version.sh scripts/as-version.sh scripts/ld-version.sh scripts/pahole-version.sh; do
+            [ -f "ack-src/$f" ] && cp -f "ack-src/$f" "kernel/$f" && echo "INFRA $f"
+          done
           echo "parsers synced"
           # (merge fino via merge-kconfig.py no passo Wire; aqui so fill)
           git clone --depth 1 --branch lineage-24.0 https://github.com/ltdq/android_kernel_qcom_sm8450-devicetrees-6.12 kernel/vendor/qcom/devicetrees-stock
