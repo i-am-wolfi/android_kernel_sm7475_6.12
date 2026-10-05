@@ -12,21 +12,26 @@ UPSTREAM = sys.argv[1] if len(sys.argv) > 1 else '../upstream-src'
 
 
 def top_blocks(text):
-    """(kind, name, body) p/ config|menuconfig de nivel 0 (fora de menu/choice/if)."""
-    out, depth, cur = [], 0, None
+    """(kind, name, body): config|menuconfig fora de choice/if (menu e ok)."""
+    out, guard, cur = [], 0, None
     for ln in text.splitlines(keepends=True):
         s = ln.strip()
-        if re.match(r'^(menu|choice|if)\b', s):
+        if re.match(r'^(choice|if)\b', s):
             if cur:
                 out.append(cur)
                 cur = None
-            depth += 1
+            guard += 1
             continue
-        if re.match(r'^(endmenu|endchoice|endif)\b', s):
-            depth = max(0, depth - 1)
+        if re.match(r'^(endchoice|endif)\b', s):
+            guard = max(0, guard - 1)
+            continue
+        if re.match(r'^(menu|endmenu)\b', s):
+            if cur:
+                out.append(cur)
+                cur = None
             continue
         m = re.match(r'^(config|menuconfig)\s+([A-Za-z0-9_]+)\b', s)
-        if m and depth == 0:
+        if m and guard == 0:
             if cur:
                 out.append(cur)
             cur = (m.group(1), m.group(2), ln)
