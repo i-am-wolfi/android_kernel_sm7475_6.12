@@ -48,21 +48,30 @@ jobs:
           cp build.config.msm.diwali kernel/build.config.msm.diwali
           git clone --depth 1 --branch lineage-24.0 https://github.com/ltdq/android_kernel_qcom_sm8450-modules-6.12 kernel-modules || true
           ls kernel/vendor/qcom/devicetrees/qcom/diwali* | head
-      - name: Build (Kleaf/GKI — pode levar 1-3h)
+      - name: Build DTBs diwali (recovery-ready) + tenta Kleaf
         run: |
-          cd kernel
-          BUILD_CONFIG=build.config.msm.diwali build/build.sh 2>&1 | tail -n 100
-        timeout-minutes: 300
+          sudo apt-get update -qq && sudo apt-get install -y -qq device-tree-compiler
+          mkdir -p out
+          for d in diwali diwali-idp diwali-atp diwali-qrd diwali-hsp diwalip-idp; do
+            f=kernel/vendor/qcom/devicetrees/qcom/$d.dts
+            [ -f "$f" ] || { echo "SKIP $d (sem $f)"; continue; }
+            gcc -E -nostdinc -I kernel/include -I kernel/vendor/qcom/devicetrees/qcom -undef -x assembler-with-cpp "$f" -o /tmp/$d.pp.dts || { echo "FAIL cpp $d"; continue; }
+            dtc -I dts -O dtb -o out/$d.dtb /tmp/$d.pp.dts && echo "OK $d" || echo "FAIL dtc $d"
+          done
+          # overlays .dtso -> .dtbo (plugin)
+          for o in kernel/vendor/qcom/devicetrees/qcom/diwali-*-overlay.dtso; do
+            b=$(basename "$o" .dtso)
+            gcc -E -nostdinc -I kernel/include -I kernel/vendor/qcom/devicetrees/qcom -undef -x assembler-with-cpp "$o" -o /tmp/$b.pp.dtso || continue
+            dtc -@ -I dts -O dtb -o out/$b.dtbo /tmp/$b.pp.dtso && echo "OK $b" || echo "FAIL $b"
+          done
+          ls -lh out/
+          echo "--- Kleaf full (esperado falhar sem manifest soc-repo; log p/ debug) ---"
+          (cd kernel && python3 build_with_bazel.py --target consolidate 2>&1 | tail -n 30) || true
       - name: Empacota AnyKernel3 + recovery boot.img
         if: always()
         run: |
-          ls kernel/out/*/dist/ 2>/dev/null | head -n 40 || ls kernel/out/ 2>/dev/null | head
-          mkdir -p out
-          find kernel/out -maxdepth 4 -name "Image" -o -maxdepth 4 -name "*.dtb" -o -maxdepth 4 -name "*.dtbo" -o -maxdepth 4 -name "dtbo.img" 2>/dev/null | head -n 40
-          cp $(find kernel/out -name "Image" | head -n 1) out/ 2>/dev/null || true
-          cp $(find kernel/out -name "*.dtb" | head -n 20) out/ 2>/dev/null || true
-          cp $(find kernel/out -name "dtbo.img" | head -n 1) out/ 2>/dev/null || true
           ls -lh out/ || true
+          echo "NOTA: Image (kernel) só sai no build Kleaf completo com manifest soc-repo; aqui vão dtb/dtbo p/ recovery"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
