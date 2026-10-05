@@ -196,11 +196,13 @@ jobs:
           # CONFIG_ARCH_THUNDER is not set
           # CONFIG_ARCH_THUNDER2 is not set
           # CONFIG_ARCH_UNIPHIER is not set
-          # HID de tablet irrelevante p/ recovery
-          # CONFIG_HID_WACOM is not set
-          CONFIG_HID is not set
+          # HID irrelevante p/ recovery de teste
+          # CONFIG_HID is not set
           # NAO usar SHMBRIDGE no marble (usando ramo #else com stubs inline)
           # CONFIG_QCOM_TZMEM_MODE_SHMBRIDGE is not set
+          # zram custom da tree incompativel c/ headers (writeback/prefetch + zcomp);
+          # swap nao precisa p/ boot de teste -> off (volta depois)
+          # CONFIG_ZRAM is not set
           EOF
           PATH="/usr/lib/llvm-19/bin:$PATH" scripts/kconfig/merge_config.sh -m arch/arm64/configs/gki_defconfig /tmp/marble.fragment
           PATH="/usr/lib/llvm-19/bin:$PATH" make ARCH=arm64 LLVM=1 LLVM_IAS=1 olddefconfig 2>&1 | tee /tmp/olddef.log; rc=${PIPESTATUS[0]}
