@@ -46,22 +46,34 @@ jobs:
           cp devicetrees/qcom/diwali* kernel/vendor/qcom/devicetrees/qcom/
           cp devicetrees/qcom/Makefile kernel/vendor/qcom/devicetrees/qcom/Makefile
           cp build.config.msm.diwali kernel/build.config.msm.diwali
-          git clone --depth 1 --branch lineage-24.0 https://github.com/ltdq/android_kernel_qcom_sm8450-modules-6.12 kernel-modules || true
           ls kernel/vendor/qcom/devicetrees/qcom/diwali* | head
+          echo "--- importa headers dt-bindings diwali do marble-s-oss (Xiaomi) p/ os que faltam no 6.12 ---"
+          MISSING="clock/qcom,camcc-diwali.h clock/qcom,dispcc-diwali.h clock/qcom,gcc-diwali.h clock/qcom,gpucc-diwali.h clock/qcom,videocc-diwali.h interconnect/qcom,diwali.h pinctrl/qcom,diwali-pinctrl.h"
+          for h in $MISSING; do
+            dst="kernel/include/dt-bindings/$h"
+            if [ ! -f "$dst" ]; then
+              mkdir -p "$(dirname "$dst")"
+              curl -sL "https://raw.githubusercontent.com/MiCode/Xiaomi_Kernel_OpenSource/marble-s-oss/include/dt-bindings/$h" -o "$dst" && echo "FETCH $h $(wc -c < "$dst")B" || echo "MISS $h"
+            else echo "HAVE $h"; fi
+          done
+          ls kernel/scripts/dtc/include-prefixes/dt-bindings/ 2>/dev/null | head -n 5 || echo "(sem include-prefixes; usando kernel/include)"
       - name: Build DTBs diwali (recovery-ready) + tenta Kleaf
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq device-tree-compiler
           mkdir -p out
+          INCS="-I kernel/include -I kernel/scripts/dtc/include-prefixes -I kernel/vendor/qcom/devicetrees/qcom"
           for d in diwali diwali-idp diwali-atp diwali-qrd diwali-hsp diwalip-idp; do
             f=kernel/vendor/qcom/devicetrees/qcom/$d.dts
             [ -f "$f" ] || { echo "SKIP $d (sem $f)"; continue; }
-            gcc -E -nostdinc -I kernel/include -I kernel/vendor/qcom/devicetrees/qcom -undef -x assembler-with-cpp "$f" -o /tmp/$d.pp.dts || { echo "FAIL cpp $d"; continue; }
+            # shellcheck disable=SC2086
+            gcc -E -nostdinc $INCS -undef -x assembler-with-cpp "$f" -o /tmp/$d.pp.dts || { echo "FAIL cpp $d"; continue; }
             dtc -I dts -O dtb -o out/$d.dtb /tmp/$d.pp.dts && echo "OK $d" || echo "FAIL dtc $d"
           done
           # overlays .dtso -> .dtbo (plugin)
           for o in kernel/vendor/qcom/devicetrees/qcom/diwali-*-overlay.dtso; do
             b=$(basename "$o" .dtso)
-            gcc -E -nostdinc -I kernel/include -I kernel/vendor/qcom/devicetrees/qcom -undef -x assembler-with-cpp "$o" -o /tmp/$b.pp.dtso || continue
+            # shellcheck disable=SC2086
+            gcc -E -nostdinc $INCS -undef -x assembler-with-cpp "$o" -o /tmp/$b.pp.dtso || continue
             dtc -@ -I dts -O dtb -o out/$b.dtbo /tmp/$b.pp.dtso && echo "OK $b" || echo "FAIL $b"
           done
           ls -lh out/
