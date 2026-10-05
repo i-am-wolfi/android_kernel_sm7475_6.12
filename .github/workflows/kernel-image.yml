@@ -143,6 +143,9 @@ jobs:
           # CONFIG_IKCONFIG is not set
           # CONFIG_IKCONFIG_PROC is not set
           # CONFIG_KHEADERS is not set
+          # SMMU v500 (qsmmu-v500) e driver v2; dispatcher precisa de hyp/KVM -> off
+          CONFIG_ARM_SMMU=y
+          # CONFIG_QCOM_SMMU_V2_V3_DISPATCHER is not set
           EOF
           PATH="/usr/lib/llvm-19/bin:$PATH" scripts/kconfig/merge_config.sh -m arch/arm64/configs/gki_defconfig /tmp/marble.fragment
           PATH="/usr/lib/llvm-19/bin:$PATH" make ARCH=arm64 LLVM=1 LLVM_IAS=1 olddefconfig 2>&1 | tee /tmp/olddef.log; rc=${PIPESTATUS[0]}
