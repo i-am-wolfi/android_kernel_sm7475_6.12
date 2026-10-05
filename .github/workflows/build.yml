@@ -43,7 +43,7 @@ jobs:
           git clone --depth 1 --branch lineage-24.0 https://github.com/ltdq/android_kernel_qcom_sm8450-6.12 kernel
           git clone --depth 1 --branch lineage-24.0 https://github.com/ltdq/android_kernel_qcom_sm8450-devicetrees-6.12 kernel/vendor/qcom/devicetrees-stock
           cp kernel/vendor/qcom/devicetrees-stock -r kernel/vendor/qcom/devicetrees 2>/dev/null || (mkdir -p kernel/vendor/qcom/devicetrees && cp -r kernel/vendor/qcom/devicetrees-stock/* kernel/vendor/qcom/devicetrees/)
-          cp devicetrees/qcom/diwali* devicetrees/qcom/diwalip* kernel/vendor/qcom/devicetrees/qcom/ 2>/dev/null; cp devicetrees/qcom/*diwali* kernel/vendor/qcom/devicetrees/qcom/ 2>/dev/null || true
+          cp devicetrees/qcom/* kernel/vendor/qcom/devicetrees/qcom/ 2>/dev/null || true
           cp devicetrees/qcom/Makefile kernel/vendor/qcom/devicetrees/qcom/Makefile
           cp build.config.msm.diwali kernel/build.config.msm.diwali
           ls kernel/vendor/qcom/devicetrees/qcom/diwali* | head
