@@ -17,13 +17,22 @@ import sys
 UPSTREAM = sys.argv[1] if len(sys.argv) > 1 else '../ack-src'
 NAMES = ('Makefile', 'Kbuild')
 
-# Makefiles ESTRUTURAIS (fluxo de build: vmlinux, boot, config targets):
-# nunca fundir, so fariam duplicatas de regras. A tree compila com os dela.
+# Makefiles ESTRUTURAIS (fluxo de build: vmlinux, boot, config targets,
+# device-tree top-level): nunca fundir. A tree compila com os dela.
 SKIP_EXACT = {
     './Makefile', './Kbuild',
     './arch/arm64/Makefile', './arch/arm64/boot/Makefile',
     './scripts/Makefile',
 }
+
+
+def _skip(p):
+    if p in SKIP_EXACT:
+        return True
+    # nada em boot/dts (o dts/Makefile da tree e vendor-only de proposito)
+    if '/boot/dts' in p:
+        return True
+    return False
 
 # Objetos que a tree excluiu DE PROPOSITO (headers qcom incompativeis;
 # nada na tree chama esses simbolos). Nao ressuscitar.
@@ -40,7 +49,7 @@ for root, dirs, files in os.walk('.'):
         if fn not in NAMES:
             continue
         kp = os.path.join(root, fn)
-        if kp in SKIP_EXACT:
+        if _skip(kp):
             continue
         up = os.path.join(UPSTREAM, os.path.relpath(kp, '.'))
         if not os.path.isfile(up):
