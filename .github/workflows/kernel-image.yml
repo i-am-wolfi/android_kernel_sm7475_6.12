@@ -156,6 +156,15 @@ jobs:
           fi
           wc -l .config; grep -c "^CONFIG_" .config || true
           grep -E "^CONFIG_ARCH_DIWALI|^CONFIG_ARCH_WAIPIO" .config || (echo "FATAL: ARCH ausente"; exit 1)
+          echo "=== AUDIT consistencia ==="
+          grep -E "^(# )?CONFIG_(FAULT_INJECTION|REF_TRACKER|TRACEPOINTS|VIRTIO_BLK|KVM|IKCONFIG|KHEADERS|MHI_BUS_MISC)" .config || true
+          for f in lib/fault-inject.c lib/ref_tracker.c lib/smp_processor_id.c include/linux/sched.h include/linux/ref_tracker.h; do
+            printf "%s: " "$f"
+            if [ -f "$f" ]; then md5sum < "$f" | cut -c1-8; printf "  ltdq-tem=%s" "$(git ls-files --error-unmatch "$f" >/dev/null 2>&1 && echo SIM || echo NAO)"; echo
+            else echo AUSENTE; fi
+          done
+          grep -c "fail_nth" include/linux/sched.h || true
+          grep -n "struct ref_tracker_dir {" -A8 include/linux/ref_tracker.h | head -n 12 || true
           echo "=== single-file verbose probe (init/main.o) ==="
           PATH="/usr/lib/llvm-19/bin:$PATH" make ARCH=arm64 LLVM=1 LLVM_IAS=1 V=1 init/main.o 2>&1 | tail -n 25 || true
 
