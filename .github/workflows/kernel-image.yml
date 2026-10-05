@@ -109,8 +109,16 @@ jobs:
           EOF
           PATH="/usr/lib/llvm-20/bin:$PATH" scripts/kconfig/merge_config.sh -m arch/arm64/configs/gki_defconfig /tmp/marble.fragment
           grep -E "ARCH_DIWALI|ARCH_WAIPIO|CONFIG_RUST=|LOCALVERSION" .config | head
+          echo "--- DIAG kconfig tree ---"
+          find . -name "Kconfig*" | wc -l
+          ls -la Kconfig arch/arm64/Kconfig arch/arm64/Kconfig.platforms drivers/Kconfig 2>&1
+          head -n 20 Kconfig
           PATH="/usr/lib/llvm-20/bin:$PATH" make ARCH=arm64 LLVM=1 LLVM_IAS=1 olddefconfig
-          grep -E "^CONFIG_ARCH_DIWALI|^CONFIG_ARCH_WAIPIO|CONFIG_RUST" .config | head
+          echo "--- DIAG resolved ---"
+          wc -l .config; grep -c "^CONFIG_" .config || true
+          grep -E "^CONFIG_ARCH_DIWALI|^CONFIG_ARCH_WAIPIO|CONFIG_RUST" .config || echo "ARCH_SYMBOLS_MISSING"
+          PATH="/usr/lib/llvm-20/bin:$PATH" make ARCH=arm64 LLVM=1 LLVM_IAS=1 savedefconfig
+          wc -l defconfig || true
 
       - name: Build Image + modules + dtbs
         run: |
