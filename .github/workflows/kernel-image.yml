@@ -16,7 +16,6 @@ env:
   ARCH: arm64
   LLVM: 1
   LLVM_IAS: 1
-  CC: "ccache clang"
   CROSS_COMPILE: aarch64-linux-gnu-
   CLANG_TRIPLE: aarch64-linux-gnu-
   KBUILD_BUILD_USER: marble
@@ -39,7 +38,7 @@ jobs:
           clang-20 --version | head -n 2
           echo "/usr/lib/llvm-20/bin" >> "$GITHUB_PATH"
           ccache --version | head -n 1
-          ccache -M 4G; ccache -z
+          ccache -M 4G; ccache -z; mkdir -p ~/.ccache
       - uses: actions/cache@v4
         with:
           path: ~/.ccache
@@ -131,6 +130,8 @@ jobs:
           # Sem LTO nos builds de teste (link LTO e lento); ligar so no final
           # CONFIG_LTO_CLANG_THIN is not set
           # CONFIG_LTO_CLANG_FULL is not set
+          # Drivers com skew 6.11/6.12 da tree, irrelevantes p/ marble (UFS, sem virtio-blk)
+          # CONFIG_VIRTIO_BLK is not set
           EOF
           PATH="/usr/lib/llvm-20/bin:$PATH" scripts/kconfig/merge_config.sh -m arch/arm64/configs/upstream_defconfig /tmp/marble.fragment
           PATH="/usr/lib/llvm-20/bin:$PATH" make ARCH=arm64 LLVM=1 LLVM_IAS=1 olddefconfig 2>&1 | tee /tmp/olddef.log; rc=${PIPESTATUS[0]}
@@ -152,7 +153,7 @@ jobs:
           cd kernel
           export PATH="/usr/lib/llvm-20/bin:$PATH"
           nproc; free -g | head -n 2
-          make -j$(nproc) Image.gz modules dtbs 2>&1 | tee /tmp/build.log | tail -n 15; rc=${PIPESTATUS[0]}
+          make -k -j$(nproc) CC="ccache clang" Image.gz modules dtbs 2>&1 | tee /tmp/build.log | tail -n 15; rc=${PIPESTATUS[0]}
           echo "--- ccache ---"; ccache -s | head -n 12
           if [ $rc -ne 0 ]; then
             echo "=== BUILD ERRORS ==="; grep -aB8 -aA3 "Error [12]\|error:" /tmp/build.log | head -n 80
