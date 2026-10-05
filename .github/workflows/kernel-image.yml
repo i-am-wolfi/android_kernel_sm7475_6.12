@@ -16,6 +16,7 @@ env:
   ARCH: arm64
   LLVM: 1
   LLVM_IAS: 1
+  CC: "ccache clang"
   CROSS_COMPILE: aarch64-linux-gnu-
   CLANG_TRIPLE: aarch64-linux-gnu-
   KBUILD_BUILD_USER: marble
@@ -28,16 +29,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Deps + toolchain clang
+      - name: Deps + toolchain clang + ccache
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq git-core flex bison build-essential \
             zlib1g-dev libssl-dev libelf-dev dwarves device-tree-compiler \
-            gcc-aarch64-linux-gnu lz4 zstd cpio python3 lsb-release wget gnupg
+            gcc-aarch64-linux-gnu lz4 zstd cpio python3 lsb-release wget gnupg ccache
           sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)" -- 20 clang lld 2>&1 | tail -n 3
           clang-20 --version | head -n 2
-          ls /usr/lib/llvm-20/bin/ | head
           echo "/usr/lib/llvm-20/bin" >> "$GITHUB_PATH"
+          ccache --version | head -n 1
+          ccache -M 4G; ccache -z
+      - uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ccache-marble-${{ hashFiles('.github/workflows/kernel-image.yml') }}-v1
+          restore-keys: ccache-marble-
 
       - name: Sync kernel + devicetrees (base real 6.11!) + dt-bindings diwali
         run: |
@@ -121,7 +128,9 @@ jobs:
           CONFIG_ARCH_WAIPIO=y
           # CONFIG_RUST is not set
           CONFIG_LOCALVERSION="-marble-diwali"
-          CONFIG_LTO_CLANG_THIN=y
+          # Sem LTO nos builds de teste (link LTO e lento); ligar so no final
+          # CONFIG_LTO_CLANG_THIN is not set
+          # CONFIG_LTO_CLANG_FULL is not set
           EOF
           PATH="/usr/lib/llvm-20/bin:$PATH" scripts/kconfig/merge_config.sh -m arch/arm64/configs/upstream_defconfig /tmp/marble.fragment
           PATH="/usr/lib/llvm-20/bin:$PATH" make ARCH=arm64 LLVM=1 LLVM_IAS=1 olddefconfig 2>&1 | tee /tmp/olddef.log; rc=${PIPESTATUS[0]}
@@ -144,6 +153,7 @@ jobs:
           export PATH="/usr/lib/llvm-20/bin:$PATH"
           nproc; free -g | head -n 2
           make -j$(nproc) Image.gz modules dtbs 2>&1 | tail -n 40
+          echo "--- ccache ---"; ccache -s | head -n 12
         timeout-minutes: 300
 
       - name: Coleta artefatos
