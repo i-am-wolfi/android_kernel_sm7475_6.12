@@ -132,6 +132,8 @@ jobs:
           python3 "$GITHUB_WORKSPACE/scripts/merge-kconfig.py" ../ack-src
           python3 "$GITHUB_WORKSPACE/scripts/merge-makefiles.py" ../ack-src
           python3 "$GITHUB_WORKSPACE/scripts/apply-port-fixes.py"
+          echo "=== auditoria de objetos (aviso; enforcement na proxima) ==="
+          python3 "$GITHUB_WORKSPACE/scripts/audit-objs.py || true"
           cat > /tmp/marble.fragment <<'EOF'
           CONFIG_ARCH_DIWALI=y
           CONFIG_ARCH_WAIPIO=y
@@ -233,10 +235,10 @@ jobs:
       - name: Build Image + modules + dtbs
         run: |
           cd kernel
-          export PATH="/usr/lib/llvm-19/bin:$PATH"
+          export PATH="/usr/lib/llvm-19/bin:/usr/local/bin:$PATH"
           nproc; free -g | head -n 2
           df -h / /tmp | head -n 5; free -g | head -n 2
-          make -k -j$(nproc) KCPPFLAGS="-I$PWD" Image.gz modules dtbs 2>&1 | tee /tmp/build.log | tail -n 15; rc=${PIPESTATUS[0]}
+          make -k -j$(nproc) CC="ccache clang" KCPPFLAGS="-I$PWD" Image.gz dtbs 2>&1 | tee /tmp/build.log | tail -n 15; rc=${PIPESTATUS[0]}
           echo "--- ccache ---"; ccache -s | head -n 12
           if [ $rc -ne 0 ]; then
             echo "=== BUILD ERRORS (por arquivo, TODOS) ==="
