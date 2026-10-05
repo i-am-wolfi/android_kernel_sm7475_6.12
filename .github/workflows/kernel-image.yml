@@ -108,19 +108,9 @@ jobs:
           # devicetrees repo == arch/arm64/boot/dts/vendor (Makefile + bindings + qcom)
           ln -sfn ../../../../vendor/qcom/devicetrees arch/arm64/boot/dts/vendor
           ls -la arch/arm64/boot/dts/ | grep vendor
-          # umbrellas Kconfig stubbed p/ kleaf (<500B) -> versao full 6.11 do upstream
-          # (mantem Kconfig.platforms/msm/qtvm e folhas qcom, que sao da tree)
-          rest=0
-          (git ls-files 2>/dev/null || find . -name "Kconfig" | sed 's|^\./||') | grep -E "Kconfig$" > /tmp/kconfigs.txt || true
-          while read -r kf; do
-            case "$kf" in *Kconfig.platforms|*Kconfig.msm|*Kconfig.qtvm) continue;; esac
-            sz=$(wc -c < "$kf" 2>/dev/null || echo 0)
-            cs=$(wc -c < "../upstream-src/$kf" 2>/dev/null || echo 0)
-            if [ "$sz" -lt 500 ] && [ "$cs" -gt 2000 ]; then
-              cp "../upstream-src/$kf" "$kf" && rest=$((rest+1)) && echo "RESTORE $kf ($sz -> $cs)"
-            fi
-          done < /tmp/kconfigs.txt
-          echo "restored=$rest"
+          # Merge Kconfigs: umbrellas trocadas por versoes qcom-only -> base upstream 6.11
+          # + blocos/sources qcom unicos (sem duplicar simbolos do upstream).
+          python3 "$GITHUB_WORKSPACE/scripts/merge-kconfig.py" ../upstream-src
           cat > /tmp/marble.fragment <<'EOF'
           CONFIG_ARCH_DIWALI=y
           CONFIG_ARCH_WAIPIO=y
