@@ -23,26 +23,28 @@ def resolve_src(t, srcdir):
 
 
 def top_blocks(text):
-    """(kind, name, body): config|menuconfig fora de choice/if (menu e ok)."""
-    out, guard, cur = [], 0, None
+    """(kind, name, body): config|menuconfig fora de choice.
+    menu/if aninhados sao ok (guardas perdidas sao inofensivas: defaults n;
+    bodies mantem seus depends explicitos). choice NAO (membros duplicariam)."""
+    out, in_choice, cur = [], 0, None
     for ln in text.splitlines(keepends=True):
         s = ln.strip()
-        if re.match(r'^\s*(choice|if)\b', s):
+        if re.match(r'^\s*choice\b', s):
             if cur:
                 out.append(cur)
                 cur = None
-            guard += 1
+            in_choice += 1
             continue
-        if re.match(r'^\s*(endchoice|endif)\b', s):
-            guard = max(0, guard - 1)
+        if re.match(r'^\s*endchoice\b', s):
+            in_choice = max(0, in_choice - 1)
             continue
-        if re.match(r'^\s*(menu|endmenu)\b', s):
+        if re.match(r'^\s*(menu|endmenu|if|endif)\b', s):
             if cur:
                 out.append(cur)
                 cur = None
             continue
         m = re.match(r'^\s*(config|menuconfig)\s+([A-Za-z0-9_]+)\b', s)
-        if m and guard == 0:
+        if m and in_choice == 0:
             if cur:
                 out.append(cur)
             cur = (m.group(1), m.group(2), ln)
