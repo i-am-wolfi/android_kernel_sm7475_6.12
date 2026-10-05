@@ -1,0 +1,132 @@
+name: kernel-image-marble
+
+# Build direto (make + clang) do Image 6.12 p/ marble (diwali/SM7475)
+# sobre base ltdq sm8450-6.12 + gki_defconfig do ACK (android16-6.12).
+# Sem Bazel/soc-repo: tudo com `make`, toolchain via llvm.sh.
+on:
+  workflow_dispatch:
+  push:
+    branches: [lineage-24.0]
+    paths:
+      - devicetrees/**
+      - .github/workflows/kernel-image.yml
+
+env:
+  ARCH: arm64
+  LLVM: 1
+  LLVM_IAS: 1
+  CROSS_COMPILE: aarch64-linux-gnu-
+  CLANG_TRIPLE: aarch64-linux-gnu-
+  KBUILD_BUILD_USER: marble
+  KBUILD_BUILD_HOST: action
+
+jobs:
+  image:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deps + toolchain clang
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq git-core flex bison build-essential \
+            zlib1g-dev libssl-dev libelf-dev dwarves device-tree-compiler \
+            gcc-aarch64-linux-gnu lz4 zstd cpio python3 lsb-release wget gnupg
+          sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)" -- 20 clang lld 2>&1 | tail -n 3
+          clang-20 --version | head -n 2
+          ls /usr/lib/llvm-20/bin/ | head
+          echo "/usr/lib/llvm-20/bin" >> "$GITHUB_PATH"
+
+      - name: Sync kernel + devicetrees (ltdq 6.12) + dt-bindings diwali
+        run: |
+          git clone --depth 1 --branch lineage-24.0 https://github.com/ltdq/android_kernel_qcom_sm8450-6.12 kernel
+          git clone --depth 1 --branch lineage-24.0 https://github.com/ltdq/android_kernel_qcom_sm8450-devicetrees-6.12 kernel/vendor/qcom/devicetrees-stock
+          mkdir -p kernel/vendor/qcom/devicetrees
+          cp -r kernel/vendor/qcom/devicetrees-stock/* kernel/vendor/qcom/devicetrees/
+          cp devicetrees/qcom/* kernel/vendor/qcom/devicetrees/qcom/
+          ls kernel/vendor/qcom/devicetrees/qcom/diwali.dts kernel/vendor/qcom/devicetrees/qcom/diwali-qrd.dtb 2>/dev/null || true
+          # gki_defconfig do ACK common (mesmo SHA da base ltdq)
+          ACK_SHA=$(cat kernel/android/ACK_SHA | head -n 1)
+          echo "ACK_SHA=$ACK_SHA"
+          curl -sL "https://android.googlesource.com/kernel/common/+/8a69376da734aa00bb02cd1155489c74454e4487/arch/arm64/configs/gki_defconfig?format=TEXT" -o /tmp/gki.b64
+          python3 -c "import base64; open('kernel/arch/arm64/configs/gki_defconfig','wb').write(base64.b64decode(open('/tmp/gki.b64').read()))"
+          grep -c CONFIG kernel/arch/arm64/configs/gki_defconfig
+          # headers dt-bindings diwali (mesma logica do build.yml)
+          fetch_one() {
+            dst="kernel/include/$1"
+            [ -f "$dst" ] && return 0
+            mkdir -p "$(dirname "$dst")"
+            code=$(curl -sL -w "%{http_code}" "https://raw.githubusercontent.com/MiCode/Xiaomi_Kernel_OpenSource/marble-s-oss/include/$1" -o "$dst")
+            [ "$code" = "200" ] || { rm -f "$dst"; return 1; }
+            if [ "$(wc -c < "$dst")" -lt 120 ] && ! grep -qE "#| |;|\{|" "$dst"; then
+              link=$(cat "$dst"); base=$(dirname "$1")
+              target=$(python3 -c "import posixpath,sys; print(posixpath.normpath(posixpath.join(sys.argv[1], sys.argv[2])))" "$base" "$link")
+              rm -f "$dst"; fetch_one "$target" && cp "kernel/include/$target" "$dst"
+              return 0
+            fi
+            [ "$(wc -c < "$dst")" -ge 50 ] || { rm -f "$dst"; return 1; }
+          }
+          grep -rhoE "dt-bindings/[^\">]+" kernel/vendor/qcom/devicetrees/qcom/ 2>/dev/null | sort -u > /tmp/need.txt
+          for round in 1 2 3 4; do
+            grep -rhoE "dt-bindings/[^\">]+" kernel/include/dt-bindings/ 2>/dev/null | sort -u >> /tmp/need.txt
+            sort -u /tmp/need.txt -o /tmp/need.txt
+            added=0
+            while read -r h; do
+              if [ ! -f "kernel/include/$h" ]; then fetch_one "$h" && added=1; fi
+            done < /tmp/need.txt
+            [ "$added" = "0" ] && break
+          done
+          mkdir -p kernel/include/dt-bindings/input kernel/include/uapi/linux
+          curl -sL "https://raw.githubusercontent.com/MiCode/Xiaomi_Kernel_OpenSource/marble-s-oss/include/uapi/linux/input-event-codes.h" -o kernel/include/uapi/linux/input-event-codes.h
+          cp kernel/include/uapi/linux/input-event-codes.h kernel/include/dt-bindings/input/linux-event-codes.h
+          echo OK sync
+
+      - name: Wire dts vendor dir + defconfig marble
+        run: |
+          cd kernel
+          mkdir -p arch/arm64/boot/dts/vendor
+          printf 'subdir-y += qcom\n' > arch/arm64/boot/dts/vendor/Makefile
+          ln -sfn ../../../../../vendor/qcom/devicetrees/qcom arch/arm64/boot/dts/vendor/qcom
+          ls -la arch/arm64/boot/dts/vendor/
+          cat > /tmp/marble.fragment <<'EOF'
+          CONFIG_ARCH_DIWALI=y
+          CONFIG_ARCH_WAIPIO=y
+          # CONFIG_RUST is not set
+          CONFIG_LOCALVERSION="-marble-diwali"
+          EOF
+          PATH="/usr/lib/llvm-20/bin:$PATH" scripts/kconfig/merge_config.sh -m arch/arm64/configs/gki_defconfig /tmp/marble.fragment
+          grep -E "ARCH_DIWALI|ARCH_WAIPIO|CONFIG_RUST=|LOCALVERSION" .config | head
+          PATH="/usr/lib/llvm-20/bin:$PATH" make ARCH=arm64 LLVM=1 LLVM_IAS=1 olddefconfig
+          grep -E "^CONFIG_ARCH_DIWALI|^CONFIG_ARCH_WAIPIO|CONFIG_RUST" .config | head
+
+      - name: Build Image + modules + dtbs
+        run: |
+          cd kernel
+          export PATH="/usr/lib/llvm-20/bin:$PATH"
+          nproc; free -g | head -n 2
+          make -j$(nproc) Image.gz modules dtbs 2>&1 | tail -n 40
+        timeout-minutes: 300
+
+      - name: Coleta artefatos
+        if: always()
+        run: |
+          cd kernel
+          mkdir -p ../out
+          cp -v arch/arm64/boot/Image* ../out/ 2>/dev/null || true
+          cp -v System.map ../out/ 2>/dev/null || true
+          cp -v .config ../out/marble-defconfig 2>/dev/null || true
+          find arch/arm64/boot/dts -name "*.dtb" -path "*diwali*" -exec cp -v {} ../out/ \; 2>/dev/null | tail -n 3
+          find arch/arm64/boot/dts -name "*.dtbo" -exec cp -v {} ../out/ \; 2>/dev/null | tail -n 3
+          ls -lh ../out/ | head -n 30
+          echo "--- modules ---"
+          mkdir -p /tmp/mods
+          make INSTALL_MOD_PATH=/tmp/mods INSTALL_MOD_STRIP=1 modules_install 2>&1 | tail -n 3 || true
+          (cd /tmp/mods && tar --zstd -cf "$GITHUB_WORKSPACE/out/vendor-modules.tar.zst" lib/ 2>/dev/null) || true
+          ls -lh ../out/ | head -n 30
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: marble-image-6.12
+          path: out/
