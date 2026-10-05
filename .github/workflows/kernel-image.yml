@@ -119,8 +119,14 @@ jobs:
           CONFIG_LOCALVERSION="-marble-diwali"
           EOF
           PATH="/usr/lib/llvm-20/bin:$PATH" scripts/kconfig/merge_config.sh -m arch/arm64/configs/upstream_defconfig /tmp/marble.fragment
-          PATH="/usr/lib/llvm-20/bin:$PATH" make ARCH=arm64 LLVM=1 LLVM_IAS=1 olddefconfig
-          echo "--- resolved ---"
+          PATH="/usr/lib/llvm-20/bin:$PATH" make ARCH=arm64 LLVM=1 LLVM_IAS=1 olddefconfig 2>&1 | tee /tmp/olddef.log; rc=${PIPESTATUS[0]}
+          if [ $rc -ne 0 ]; then
+            echo "=== olddefconfig FAILED, dumping culprit Kconfig(s) ==="
+            grep -aoE "[a-zA-Z0-9_./-]*Kconfig[a-zA-Z0-9_./-]*" /tmp/olddef.log | sort -u | head -n 5
+            f=$(grep -aoE "[a-zA-Z0-9_./-]*Kconfig[a-zA-Z0-9_./-]*" /tmp/olddef.log | sort -u | head -n 1)
+            echo "=== DUMP $f ==="; sed -n '1,70p' "$f"
+            exit 1
+          fi
           wc -l .config; grep -c "^CONFIG_" .config || true
           grep -E "^CONFIG_ARCH_DIWALI|^CONFIG_ARCH_WAIPIO" .config || (echo "FATAL: ARCH ausente"; exit 1)
 

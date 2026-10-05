@@ -16,21 +16,21 @@ def top_blocks(text):
     out, guard, cur = [], 0, None
     for ln in text.splitlines(keepends=True):
         s = ln.strip()
-        if re.match(r'^(choice|if)\b', s):
+        if re.match(r'^\s*(choice|if)\b', s):
             if cur:
                 out.append(cur)
                 cur = None
             guard += 1
             continue
-        if re.match(r'^(endchoice|endif)\b', s):
+        if re.match(r'^\s*(endchoice|endif)\b', s):
             guard = max(0, guard - 1)
             continue
-        if re.match(r'^(menu|endmenu)\b', s):
+        if re.match(r'^\s*(menu|endmenu)\b', s):
             if cur:
                 out.append(cur)
                 cur = None
             continue
-        m = re.match(r'^(config|menuconfig)\s+([A-Za-z0-9_]+)\b', s)
+        m = re.match(r'^\s*(config|menuconfig)\s+([A-Za-z0-9_]+)\b', s)
         if m and guard == 0:
             if cur:
                 out.append(cur)
