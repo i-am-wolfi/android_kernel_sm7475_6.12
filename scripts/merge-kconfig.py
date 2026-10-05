@@ -72,6 +72,8 @@ for root, dirs, files in os.walk('.'):
         kp = os.path.join(root, fn)
         if kp.endswith(KEEP_NAMES):
             continue
+        if kp.startswith('arch/') and not (kp == 'arch/Kconfig' or kp.startswith('arch/arm64/')):
+            continue
         up = os.path.join(UPSTREAM, os.path.relpath(kp, '.'))
         if not os.path.isfile(up):
             continue
@@ -112,9 +114,19 @@ print('merged=%d' % merged)
 def dedupe_sources():
     """Remove arestas source duplicadas (mesmo alvo via 2+ arquivos).
     Plain make nao tolera double-parse (prompts duplicados quebram choices).
+    So considera arquivos VIVOS no parse arm64: ignora Kconfig.msm/qtvm
+    (nunca sourced no make) e arch/<outras> (nunca parseadas p/ arm64).
     Mantem a aresta do diretorio-pai do alvo; remove das demais. Loga tudo.
     """
     import glob
+
+    def live(p):
+        if os.path.basename(p) in ('Kconfig.msm', 'Kconfig.qtvm'):
+            return False
+        if p.startswith('arch/') and not (p == 'arch/Kconfig' or p.startswith('arch/arm64/')):
+            return False
+        return True
+
     edges = {}  # target_tree_rel -> set(sourcer)
     src_lines = {}  # (sourcer, target) -> [linenos]
 
@@ -127,6 +139,8 @@ def dedupe_sources():
             if fn == 'Kconfig' or fn.startswith('Kconfig'):
                 files.append(os.path.join(root, fn))
     for kp in files:
+        if not live(kp):
+            continue
         try:
             with open(kp, encoding='utf-8', errors='replace') as f:
                 lines = f.readlines()
@@ -144,6 +158,7 @@ def dedupe_sources():
             src_lines.setdefault((kp, t), []).append(i)
     fixed = 0
     for t, sourcers in sorted(edges.items()):
+        sourcers = set(s for s in sourcers if live(s))
         if len(sourcers) < 2:
             continue
         parent = os.path.join(os.path.dirname(t), 'Kconfig')
