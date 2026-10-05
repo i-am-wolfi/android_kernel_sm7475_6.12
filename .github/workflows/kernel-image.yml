@@ -43,7 +43,7 @@ jobs:
           git clone --depth 1 --branch lineage-24.0 https://github.com/ltdq/android_kernel_qcom_sm8450-6.12 kernel
           # ACK common: preenche host-tools e fontes removidas p/ Kleaf (scripts/*.c etc)
           git clone --depth 1 --branch android16-6.12-2026-06 https://android.googlesource.com/kernel/common common-src 2>&1 | tail -n 1
-          (cd kernel && cd ../common-src && git ls-files | grep -vE '^(arch/[^/]+/boot/dts/|Documentation/)' > /tmp/common-files.txt)
+          (cd kernel && cd ../common-src && git ls-files | awk '$0 !~ /^(arch\/[^\/]+\/boot\/dts\/)/ && ($0 !~ /^Documentation\// || $0 ~ /(Kconfig|Kbuild|Makefile)/)' > /tmp/common-files.txt)
           wc -l /tmp/common-files.txt
           filled=0
           while read -r f; do
