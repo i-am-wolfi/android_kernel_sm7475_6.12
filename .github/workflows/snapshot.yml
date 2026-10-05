@@ -60,10 +60,13 @@ jobs:
           FORK_PAT: ${{ secrets.FORK_PAT }}
         run: |
           cd kernel
+          # sem .git aninhado (virava submodule): conteudo inline; sem -stock (redundante)
+          rm -rf vendor/qcom/devicetrees/.git vendor/qcom/devicetrees-stock
           EXCLUDE=':(exclude)*.o :(exclude)*.cmd :(exclude)*.ko :(exclude)*.mod :(exclude)*.mod.c :(exclude)*.order :(exclude)*.symvers :(exclude).config* :(exclude)out :(exclude)*.dtb :(exclude)*.dtbo :(exclude)*.gz :(exclude)Module.symvers :(exclude)modules.* :(exclude)*.d :(exclude).tmp_* :(exclude)vmlinux* :(exclude)System.map :(exclude)*.a :(exclude)*.so* :(exclude)*.lex.c :(exclude)*.tab.[ch]'
           git add -A $EXCLUDE
           git commit -qm "marble: merge Kconfig/Makefile upstream+qcom + port fixes (tzmem etc)" || true
           git add -A $EXCLUDE vendor/
+          git add -f arch/arm64/boot/dts/vendor
           git commit -qm "marble: devicetrees diwali + vendor symlink" || true
           git log --oneline -5
           git push -u origin marble-wip 2>&1 | tail -n 3
