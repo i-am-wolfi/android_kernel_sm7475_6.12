@@ -152,8 +152,12 @@ jobs:
           cd kernel
           export PATH="/usr/lib/llvm-20/bin:$PATH"
           nproc; free -g | head -n 2
-          make -j$(nproc) Image.gz modules dtbs 2>&1 | tail -n 40
+          make -j$(nproc) Image.gz modules dtbs 2>&1 | tee /tmp/build.log | tail -n 15; rc=${PIPESTATUS[0]}
           echo "--- ccache ---"; ccache -s | head -n 12
+          if [ $rc -ne 0 ]; then
+            echo "=== BUILD ERRORS ==="; grep -aB8 -aA3 "Error [12]\|error:" /tmp/build.log | head -n 80
+            exit 1
+          fi
         timeout-minutes: 300
 
       - name: Coleta artefatos
