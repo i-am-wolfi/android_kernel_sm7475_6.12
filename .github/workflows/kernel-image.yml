@@ -109,8 +109,13 @@ jobs:
             [ "$added" = "0" ] && break
           done
           mkdir -p kernel/include/dt-bindings/input kernel/include/uapi/linux
-          curl -sL "https://raw.githubusercontent.com/MiCode/Xiaomi_Kernel_OpenSource/marble-s-oss/include/uapi/linux/input-event-codes.h" -o kernel/include/uapi/linux/input-event-codes.h
-          cp kernel/include/uapi/linux/input-event-codes.h kernel/include/dt-bindings/input/linux-event-codes.h
+          # header de event codes: NAO sobrescrever o novo (5.10 do marble nao tem os KEY_* novos)
+          if [ ! -f kernel/include/uapi/linux/input-event-codes.h ]; then
+            fetch_one uapi/linux/input-event-codes.h || true
+          fi
+          if [ ! -f kernel/include/dt-bindings/input/linux-event-codes.h ] && [ -f kernel/include/uapi/linux/input-event-codes.h ]; then
+            cp kernel/include/uapi/linux/input-event-codes.h kernel/include/dt-bindings/input/linux-event-codes.h
+          fi
           echo OK sync
 
       - name: Wire dts vendor dir + defconfig marble
