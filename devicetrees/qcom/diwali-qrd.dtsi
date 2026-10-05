@@ -8,7 +8,7 @@
 	status = "disabled";
 };
 
-&pmr735a_spmi {
+&pmr735a_1 {
 	status = "disabled";
 };
 
