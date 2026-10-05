@@ -108,8 +108,8 @@ jobs:
           # devicetrees repo == arch/arm64/boot/dts/vendor (Makefile + bindings + qcom)
           ln -sfn ../../../../vendor/qcom/devicetrees arch/arm64/boot/dts/vendor
           ls -la arch/arm64/boot/dts/ | grep vendor
-          # Merge Kconfigs: umbrellas trocadas por versoes qcom-only -> base upstream 6.11
-          # + blocos/sources qcom unicos (sem duplicar simbolos do upstream).
+          # Merge Kconfigs: umbrellas trocadas por versoes qcom-only -> base ACK 6.12
+          # + blocos/sources qcom unicos (sem duplicar simbolos).
           python3 "$GITHUB_WORKSPACE/scripts/merge-kconfig.py" ../ack-src
           cat > /tmp/marble.fragment <<'EOF'
           CONFIG_ARCH_DIWALI=y
