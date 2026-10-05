@@ -194,6 +194,7 @@ jobs:
           # CONFIG_ARCH_UNIPHIER is not set
           # HID de tablet irrelevante p/ recovery
           # CONFIG_HID_WACOM is not set
+          CONFIG_HID is not set
           EOF
           PATH="/usr/lib/llvm-19/bin:$PATH" scripts/kconfig/merge_config.sh -m arch/arm64/configs/gki_defconfig /tmp/marble.fragment
           PATH="/usr/lib/llvm-19/bin:$PATH" make ARCH=arm64 LLVM=1 LLVM_IAS=1 olddefconfig 2>&1 | tee /tmp/olddef.log; rc=${PIPESTATUS[0]}
