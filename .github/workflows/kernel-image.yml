@@ -128,7 +128,10 @@ jobs:
             echo "=== olddefconfig FAILED, dumping culprit Kconfig(s) ==="
             grep -aoE "[a-zA-Z0-9_./-]*Kconfig[a-zA-Z0-9_./-]*" /tmp/olddef.log | sort -u | head -n 5
             f=$(grep -aoE "[a-zA-Z0-9_./-]*Kconfig[a-zA-Z0-9_./-]*" /tmp/olddef.log | sort -u | head -n 1)
-            echo "=== DUMP $f ==="; sed -n '1,70p' "$f"
+            echo "=== DUMP $f (head) ==="; sed -n '1,70p' "$f"
+            echo "=== DUMP $f (tail) ==="; tail -n 80 "$f"
+            sym=$(grep -aoE "Kconfig:[0-9]+" /tmp/olddef.log | head -n 1)
+            echo "=== hunting dups ==="; grep -rn "config QCOM_TZMEM_MODE" drivers/firmware/ || true
             exit 1
           fi
           wc -l .config; grep -c "^CONFIG_" .config || true
