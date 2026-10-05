@@ -68,13 +68,40 @@ for root, dirs, files in os.walk('.'):
         local_targets = set(re.findall(r'(?m)^([^\s#:][^:]*):', local))
         local_has_liby = bool(re.search(r'(?m)^lib-y\s*[:+?]?=', local))
         local_lines = set(l.strip() for l in local.splitlines())
-        # divide base em unidades: linha col-0 + linhas tab seguintes (receita)
+        # divide base em unidades: linha col-0 + linhas tab seguintes (receita),
+        # rastreando guardas ifneq/ifeq/ifdef/ifndef (preservadas ao anexar,
+        # senao obj incondicional duplica simbolo no link, ex up.o vs smp.o)
         lines = base.splitlines(keepends=True)
         add = []
         i = 0
+        guard = []
+        def _wrap(u):
+            if not guard:
+                return u
+            g = ''.join(g if g.endswith('\n') else g + '\n' for g in guard)
+            return g + u + 'endif\n' * len(guard)
+
+        def _push_guard(ln):
+            guard.append(ln if ln.endswith('\n') else ln + '\n')
+
         while i < len(lines):
             ln = lines[i]
             if not re.match(r'^[^\s#]', ln):
+                i += 1
+                continue
+            gm = re.match(r'^(ifneq|ifeq|ifdef|ifndef)\b', ln)
+            if gm:
+                _push_guard(ln)
+                i += 1
+                continue
+            if re.match(r'^else\b', ln):
+                if guard:
+                    guard[-1] = guard[-1].rstrip('\n') + '\nelse\n'
+                i += 1
+                continue
+            if re.match(r'^endif\b', ln):
+                if guard:
+                    guard.pop()
                 i += 1
                 continue
             unit = ln
@@ -93,7 +120,7 @@ for root, dirs, files in os.walk('.'):
                     new_toks = [t for t in toks if t not in have_tokens and t not in DENY_OBJS]
                     if new_toks:
                         prefix = re.match(r'^((?:obj|lib)(?:-[\w$(){}]+)?\s*(?:\+=|:=)\s*)', first).group(1)
-                        add.append(prefix + ' '.join(new_toks) + '\n')
+                        add.append(_wrap(prefix + ' '.join(new_toks) + '\n'))
                 i = j
                 continue
             # vars compostas (foo-objs, foo-y, foo-$(CONFIG..)): definem conteudo
@@ -103,7 +130,7 @@ for root, dirs, files in os.walk('.'):
             if m15 and re.search(r'-(?:objs|y)(?:-|$|\s)|\-\$\(CONFIG', m15.group(1)) and not re.match(r'^(ccflags|asflags|ldflags|cppflags|cflags|aflags|rustflags|bindgen|rtoflags)', m15.group(1)):
                 varname = re.sub(r'\s+', '', m15.group(1))
                 if varname not in local_assigns:
-                    add.append(unit if unit.endswith('\n') else unit + '\n')
+                    add.append(_wrap(unit if unit.endswith('\n') else unit + '\n'))
                 i = j
                 continue
             m2 = re.match(r'^((?:hostprogs|targets|always|extra|clean-files|cmd_\w+|quiet_cmd_\w+))(?:-[\w$(){}]+)?\s*(\+=|:=|=|\?=)\s*(.*)$', first)
@@ -111,9 +138,9 @@ for root, dirs, files in os.walk('.'):
                 var, op = m2.group(1), m2.group(2)
                 if op == '+=':
                     if first.strip() not in local_lines:
-                        add.append(unit if unit.endswith('\n') else unit + '\n')
+                        add.append(_wrap(unit if unit.endswith('\n') else unit + '\n'))
                 elif var not in local_assigns:
-                    add.append(unit if unit.endswith('\n') else unit + '\n')
+                    add.append(_wrap(unit if unit.endswith('\n') else unit + '\n'))
                 i = j
                 continue
             m3 = re.match(r'^([^\s#:][^:]*):', first)
@@ -125,7 +152,7 @@ for root, dirs, files in os.walk('.'):
                     continue
                 tgt = m3.group(1).strip()
                 if tgt not in local_targets:
-                    add.append(unit if unit.endswith('\n') else unit + '\n')
+                    add.append(_wrap(unit if unit.endswith('\n') else unit + '\n'))
                 i = j
                 continue
             i = j
