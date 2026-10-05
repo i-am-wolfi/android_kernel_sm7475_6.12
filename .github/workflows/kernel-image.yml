@@ -134,6 +134,8 @@ jobs:
           # CONFIG_VIRTIO_BLK is not set
           # MHI misc (modem/WLAN): pm.c chama API que so existe com MISC ligado
           CONFIG_MHI_BUS_MISC=y
+          # hyp/KVM deletado da tree (Kleaf pega do common); sem par p/ headers -> off no teste
+          # CONFIG_KVM is not set
           EOF
           PATH="/usr/lib/llvm-19/bin:$PATH" scripts/kconfig/merge_config.sh -m arch/arm64/configs/gki_defconfig /tmp/marble.fragment
           PATH="/usr/lib/llvm-19/bin:$PATH" make ARCH=arm64 LLVM=1 LLVM_IAS=1 olddefconfig 2>&1 | tee /tmp/olddef.log; rc=${PIPESTATUS[0]}
