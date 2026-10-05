@@ -1,0 +1,69 @@
+name: snapshot-marble-kernel
+
+# Monta a tree completa do porte (igual kernel-image, sem compilar) e empurra
+# o estado como commits na branch `marble-wip` do fork, pra nada se perder.
+# Requer secret FORK_PAT (PAT com Contents:write no fork do kernel).
+# Manual: Actions -> snapshot-marble-kernel -> Run workflow.
+on:
+  workflow_dispatch:
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sync kernel + devicetrees + fills (igual build)
+        run: |
+          git clone --depth 1 --branch lineage-24.0 https://github.com/i-am-wolfi/android_kernel_qcom_sm8450-6.12 kernel
+          git clone --depth 1 --branch android16-6.12-2026-06 https://android.googlesource.com/kernel/common ack-src 2>&1 | tail -n 1
+          (cd ack-src && git ls-files | awk '$0 !~ /^(arch\/[^\/]+\/boot\/dts\/)/ && ($0 !~ /^Documentation\// || $0 ~ /(Kconfig|Kbuild|Makefile)/)' > /tmp/common-files.txt)
+          while read -r f; do
+            if [ ! -e "kernel/$f" ]; then
+              mkdir -p "kernel/$(dirname "$f")" 2>/dev/null || true
+              cp "ack-src/$f" "kernel/$f" 2>/dev/null || true
+            fi
+          done < /tmp/common-files.txt
+          for d in scripts/kconfig scripts/dtc scripts/genksyms; do cp -rf ack-src/$d/. kernel/$d/; done
+          for f in scripts/Kconfig.include scripts/rustc-version.sh scripts/rustc-llvm-version.sh scripts/rust_is_available.sh scripts/cc-version.sh scripts/as-version.sh scripts/ld-version.sh scripts/pahole-version.sh; do
+            [ -f "ack-src/$f" ] && cp -f "ack-src/$f" "kernel/$f" || true
+          done
+          git clone --depth 1 --branch marble https://github.com/i-am-wolfi/android_kernel_qcom_sm8450-devicetrees-6.12 kernel/vendor/qcom/devicetrees 2>&1 | tail -n 1
+          echo OK sync
+
+      - name: Commit 1/3 fill ACK no fork
+        env:
+          FORK_PAT: ${{ secrets.FORK_PAT }}
+        run: |
+          [ -n "$FORK_PAT" ] || { echo "SEM secret FORK_PAT (repo Settings > Secrets > Actions)"; exit 1; }
+          cd kernel
+          git config user.name "marble-bot"
+          git config user.email "marble-bot@local"
+          git remote set-url origin "https://x-access-token:${FORK_PAT}@github.com/i-am-wolfi/android_kernel_qcom_sm8450-6.12.git"
+          git checkout -B marble-wip
+          git add -A
+          git commit -qm "marble: fill ACK android16-6.12 (fontes removidas p/ kleaf) + parsers 100% ACK" || true
+          echo OK c1
+
+      - name: Merges + fixes + vendor symlink
+        run: |
+          cd kernel
+          ln -sfn ../../../../vendor/qcom/devicetrees arch/arm64/boot/dts/vendor
+          python3 "$GITHUB_WORKSPACE/scripts/merge-kconfig.py" ../ack-src
+          python3 "$GITHUB_WORKSPACE/scripts/merge-makefiles.py" ../ack-src
+          python3 "$GITHUB_WORKSPACE/scripts/apply-port-fixes.py"
+          echo OK wire
+
+      - name: Commit 2/3 merges + 3/3 devicetrees, push
+        env:
+          FORK_PAT: ${{ secrets.FORK_PAT }}
+        run: |
+          cd kernel
+          EXCLUDE=':(exclude)*.o :(exclude)*.cmd :(exclude)*.ko :(exclude)*.mod :(exclude)*.mod.c :(exclude)*.order :(exclude)*.symvers :(exclude).config* :(exclude)out :(exclude)*.dtb :(exclude)*.dtbo :(exclude)*.gz :(exclude)Module.symvers :(exclude)modules.* :(exclude)*.d :(exclude).tmp_* :(exclude)vmlinux* :(exclude)System.map :(exclude)*.a :(exclude)*.so* :(exclude)*.lex.c :(exclude)*.tab.[ch]'
+          git add -A $EXCLUDE
+          git commit -qm "marble: merge Kconfig/Makefile upstream+qcom + port fixes (tzmem etc)" || true
+          git add -A $EXCLUDE vendor/
+          git commit -qm "marble: devicetrees diwali + vendor symlink" || true
+          git log --oneline -5
+          git push -u origin marble-wip 2>&1 | tail -n 3
