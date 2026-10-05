@@ -55,6 +55,10 @@ jobs:
           done < /tmp/common-files.txt
           echo "filled=$filled"
           ls kernel/scripts/basic/fixdep.c kernel/scripts/kconfig/conf.c kernel/scripts/dtc/dtc.c kernel/arch/arm64/Kconfig 2>&1
+          # parsers (kconfig/dtc) DEVEM ser 100% consistentes: ltdq mistura versoes
+          # (lexer/parser velhos + backend novo = conf corrompido). Upstream vence aqui.
+          for d in scripts/kconfig scripts/dtc; do cp -rf upstream-src/$d/. kernel/$d/; done
+          echo "parsers synced"
           # umbrellas Kconfig stubbed p/ kleaf (<500B, ex drivers/interconnect) -> versao full 6.11
           rest=0
           while read -r kf; do
