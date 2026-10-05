@@ -134,7 +134,7 @@ jobs:
           python3 "$GITHUB_WORKSPACE/scripts/apply-port-fixes.py"
           echo "=== auditoria de objetos (aviso; enforcement na proxima) ==="
           python3 "$GITHUB_WORKSPACE/scripts/audit-objs.py" || true
-          cd kernel
+          cd "$GITHUB_WORKSPACE/kernel"
           git diff --stat | tail -n 5
           git diff > "$GITHUB_WORKSPACE/merge.patch" || true
           ls -lh "$GITHUB_WORKSPACE/merge.patch"
