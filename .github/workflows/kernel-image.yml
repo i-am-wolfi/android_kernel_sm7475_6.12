@@ -122,6 +122,7 @@ jobs:
           # Merge Kconfigs: umbrellas trocadas por versoes qcom-only -> base ACK 6.12
           # + blocos/sources qcom unicos (sem duplicar simbolos).
           python3 "$GITHUB_WORKSPACE/scripts/merge-kconfig.py" ../ack-src
+          python3 "$GITHUB_WORKSPACE/scripts/merge-makefiles.py" ../ack-src
           cat > /tmp/marble.fragment <<'EOF'
           CONFIG_ARCH_DIWALI=y
           CONFIG_ARCH_WAIPIO=y
