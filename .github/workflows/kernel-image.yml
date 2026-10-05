@@ -9,6 +9,7 @@ on:
     branches: [lineage-24.0]
     paths:
       - devicetrees/**
+      - scripts/**
       - .github/workflows/kernel-image.yml
 
 env:
