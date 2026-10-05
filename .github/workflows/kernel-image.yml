@@ -44,7 +44,7 @@ jobs:
           git clone --depth 1 --branch lineage-24.0 https://github.com/ltdq/android_kernel_qcom_sm8450-devicetrees-6.12 kernel/vendor/qcom/devicetrees-stock
           mkdir -p kernel/vendor/qcom/devicetrees
           cp -r kernel/vendor/qcom/devicetrees-stock/* kernel/vendor/qcom/devicetrees/
-          cp devicetrees/qcom/* kernel/vendor/qcom/devicetrees/qcom/
+          cp -r devicetrees/. kernel/vendor/qcom/devicetrees/
           ls kernel/vendor/qcom/devicetrees/qcom/diwali.dts kernel/vendor/qcom/devicetrees/qcom/diwali-qrd.dtb 2>/dev/null || true
           # gki_defconfig do ACK common (mesmo SHA da base ltdq)
           ACK_SHA=$(cat kernel/android/ACK_SHA | head -n 1)
