@@ -137,6 +137,8 @@ jobs:
           CONFIG_MHI_BUS_MISC=y
           # hyp/KVM deletado da tree (Kleaf pega do common); sem par p/ headers -> off no teste
           # CONFIG_KVM is not set
+          # pKVM precisa de KVM (mod_arch_specific.hyp) -> off junto
+          # CONFIG_ARM_SMMU_V3_PKVM is not set
           # IKCONFIG/KHEADERS exigem regras de geracao ausentes na tree -> off no teste
           # CONFIG_IKCONFIG is not set
           # CONFIG_IKCONFIG_PROC is not set
