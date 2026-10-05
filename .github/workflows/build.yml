@@ -65,7 +65,7 @@ jobs:
             [ "$(wc -c < "$dst")" -ge 50 ] || { rm -f "$dst"; echo "MISS $1 (miudo)"; return 1; }
             echo "FETCH $1"
           }
-          grep -rhoE "dt-bindings/[^\">]+" devicetrees/qcom/diwali* devicetrees/qcom/diwalip* 2>/dev/null | sort -u > /tmp/need.txt
+          grep -rhoE "dt-bindings/[^\">]+" kernel/vendor/qcom/devicetrees/qcom/ 2>/dev/null | sort -u > /tmp/need.txt
           for round in 1 2 3 4; do
             grep -rhoE "dt-bindings/[^\">]+" kernel/include/dt-bindings/ 2>/dev/null | sort -u >> /tmp/need.txt
             sort -u /tmp/need.txt -o /tmp/need.txt
