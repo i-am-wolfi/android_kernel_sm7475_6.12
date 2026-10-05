@@ -11,6 +11,12 @@ import sys
 UPSTREAM = sys.argv[1] if len(sys.argv) > 1 else '../ack-src'
 NAMES = ('Makefile', 'Kbuild')
 
+# Objetos que a tree excluiu DE PROPOSITO (headers qcom incompativeis com
+# a versao upstream; nada na tree chama esses simbolos). Nao ressuscitar.
+# - rpm-traces.o: pm.h da tree removeu usage_count/disable_depth e
+#   runtime.c nao chama trace_rpm_*.
+DENY_OBJS = {'rpm-traces.o'}
+
 merged = 0
 for root, dirs, files in os.walk('.'):
     if root.startswith(('./.git', './out')):
@@ -48,6 +54,9 @@ for root, dirs, files in os.walk('.'):
             if not toks:
                 continue
             if any(t in have_tokens for t in toks):
+                continue
+            if any(t in DENY_OBJS for t in toks):
+                print('DENY %s: %s' % (kp, toks))
                 continue
             add.append(ln if ln.endswith('\n') else ln + '\n')
         if add:
