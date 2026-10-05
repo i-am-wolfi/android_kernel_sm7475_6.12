@@ -148,6 +148,8 @@ jobs:
           fi
           wc -l .config; grep -c "^CONFIG_" .config || true
           grep -E "^CONFIG_ARCH_DIWALI|^CONFIG_ARCH_WAIPIO" .config || (echo "FATAL: ARCH ausente"; exit 1)
+          echo "=== single-file verbose probe (init/main.o) ==="
+          PATH="/usr/lib/llvm-19/bin:$PATH" make ARCH=arm64 LLVM=1 LLVM_IAS=1 V=1 init/main.o 2>&1 | tail -n 25 || true
 
       - name: Build Image + modules + dtbs
         run: |
