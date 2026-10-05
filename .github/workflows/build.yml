@@ -23,6 +23,7 @@ jobs:
         with:
           name: diwali-sanity
           path: devicetrees/qcom/diwali*
+          retention-days: 7
 
   full-kernel:
     runs-on: ubuntu-22.04
@@ -113,3 +114,4 @@ jobs:
         with:
           name: marble-kernel-out
           path: out/
+          retention-days: 7
