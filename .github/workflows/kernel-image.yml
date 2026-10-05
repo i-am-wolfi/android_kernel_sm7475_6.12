@@ -33,10 +33,16 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq git-core flex bison build-essential \
             zlib1g-dev libssl-dev libelf-dev dwarves device-tree-compiler \
-            gcc-aarch64-linux-gnu lz4 zstd cpio python3 lsb-release wget gnupg ccache
+            gcc-aarch64-linux-gnu lz4 zstd cpio python3 lsb-release wget gnupg
           sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)" -- 20 clang lld 2>&1 | tail -n 3
           clang-20 --version | head -n 2
           echo "/usr/lib/llvm-20/bin" >> "$GITHUB_PATH"
+          # ccache do Ubuntu (4.5) quebra com clang-20 (double free): usa release oficial
+          curl -sL https://github.com/ccache/ccache/releases/download/v4.14.1/ccache-4.14.1-linux-x86_64-glibc.tar.gz -o /tmp/ccache.tgz
+          tar -xzf /tmp/ccache.tgz -C /tmp
+          sudo install -m755 /tmp/ccache-4.14.1-linux-x86_64-glibc/ccache /usr/local/bin/ccache
+          export PATH="/usr/local/bin:$PATH"
+          echo "/usr/local/bin" >> "$GITHUB_PATH"
           ccache --version | head -n 1
           ccache -M 4G; ccache -z; mkdir -p ~/.ccache
       - uses: actions/cache@v4
