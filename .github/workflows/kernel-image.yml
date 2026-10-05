@@ -249,6 +249,14 @@ jobs:
             grep -aE "\.(c|h|S):[0-9]+:[0-9]+: (error|fatal error)" /tmp/build.log | sed -E 's/^.* ([a-zA-Z0-9_\/.-]+\.(c|h|S)):[0-9]+:[0-9]+: ((fatal )?error).*/\1: \3/' | sort | uniq -c | sort -rn | head -n 100
             echo "=== TODOS os .o que falharam ==="
             grep -aoE "Makefile\.build:[0-9]+: [a-zA-Z0-9_\/.-]+\.o" /tmp/build.log | sed -E 's/.*: //' | sort -u | head -n 100
+            echo "=== membros duplicados em vmlinux.a / built-in.a suspeitos ==="
+            for a in vmlinux.a drivers/base/regmap/built-in.a drivers/usb/gadget/function/built-in.a drivers/pci/controller/built-in.a kernel/built-in.a; do
+              [ -f "$a" ] && { echo "--- $a:"; llvm-ar t "$a" 2>/dev/null | sort | uniq -d | head -n 10; } || true
+            done
+            echo "=== onde regmap-mmio.o e listado:"
+            grep -rn "regmap-mmio\.o" drivers/base/regmap/Makefile drivers/base/Makefile 2>/dev/null | head
+            echo "=== onde u_ether.o e listado:"
+            grep -rn "u_ether\.o" drivers/usb/gadget/function/Makefile drivers/usb/gadget/Makefile 2>/dev/null | head
             exit 1
           fi
         timeout-minutes: 300
