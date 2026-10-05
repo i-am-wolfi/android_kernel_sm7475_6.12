@@ -48,8 +48,8 @@ jobs:
           filled=0
           while read -r f; do
             if [ ! -e "kernel/$f" ]; then
-              mkdir -p "kernel/$(dirname "$f")"
-              cp "common-src/$f" "kernel/$f" && filled=$((filled+1))
+              mkdir -p "kernel/$(dirname "$f")" 2>/dev/null || true
+              cp "common-src/$f" "kernel/$f" 2>/dev/null && filled=$((filled+1)) || echo "SKIP $f"
             fi
           done < /tmp/common-files.txt
           echo "filled=$filled"
@@ -98,10 +98,9 @@ jobs:
       - name: Wire dts vendor dir + defconfig marble
         run: |
           cd kernel
-          mkdir -p arch/arm64/boot/dts/vendor
-          printf 'subdir-y += qcom\n' > arch/arm64/boot/dts/vendor/Makefile
-          ln -sfn ../../../../../vendor/qcom/devicetrees/qcom arch/arm64/boot/dts/vendor/qcom
-          ls -la arch/arm64/boot/dts/vendor/
+          # devicetrees repo == arch/arm64/boot/dts/vendor (Makefile + bindings + qcom)
+          ln -sfn ../../../../vendor/qcom/devicetrees arch/arm64/boot/dts/vendor
+          ls -la arch/arm64/boot/dts/ | grep vendor
           cat > /tmp/marble.fragment <<'EOF'
           CONFIG_ARCH_DIWALI=y
           CONFIG_ARCH_WAIPIO=y
