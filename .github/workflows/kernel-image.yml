@@ -133,7 +133,7 @@ jobs:
           python3 "$GITHUB_WORKSPACE/scripts/merge-makefiles.py" ../ack-src
           python3 "$GITHUB_WORKSPACE/scripts/apply-port-fixes.py"
           echo "=== auditoria de objetos (aviso; enforcement na proxima) ==="
-          python3 "$GITHUB_WORKSPACE/scripts/audit-objs.py || true"
+          python3 "$GITHUB_WORKSPACE/scripts/audit-objs.py" || true
           cat > /tmp/marble.fragment <<'EOF'
           CONFIG_ARCH_DIWALI=y
           CONFIG_ARCH_WAIPIO=y
