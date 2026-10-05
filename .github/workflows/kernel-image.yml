@@ -101,6 +101,23 @@ jobs:
           # devicetrees repo == arch/arm64/boot/dts/vendor (Makefile + bindings + qcom)
           ln -sfn ../../../../vendor/qcom/devicetrees arch/arm64/boot/dts/vendor
           ls -la arch/arm64/boot/dts/ | grep vendor
+          # umbrellas Kconfig stubbed p/ kleaf (<500B) -> restaura versao full do common
+          # (mantem Kconfig.platforms/msm/qtvm e folhas qcom, que sao da tree)
+          rest=0
+          (git ls-files 2>/dev/null || find . -name "Kconfig" | sed 's|^\./||') | grep -E "Kconfig$" > /tmp/kconfigs.txt || true
+          while read -r kf; do
+            case "$kf" in *Kconfig.platforms|*Kconfig.msm|*Kconfig.qtvm) continue;; esac
+            sz=$(wc -c < "$kf" 2>/dev/null || echo 0)
+            cs=$(wc -c < "../common-src/$kf" 2>/dev/null || echo 0)
+            if [ "$sz" -lt 500 ] && [ "$cs" -gt 2000 ]; then
+              cp "../common-src/$kf" "$kf" && rest=$((rest+1)) && echo "RESTORE $kf ($sz -> $cs)"
+            fi
+          done < /tmp/kconfigs.txt
+          echo "restored=$rest"
+          # Kconfig.ext da tree (igual Kleaf): Kconfig.msm com prefixo vazio + env p/ aninhados
+          sed 's|$(KCONFIG_EXT_PREFIX)||g' Kconfig.msm > Kconfig.ext
+          grep -c "^source" Kconfig.ext
+          export KCONFIG_EXT_PREFIX=""
           cat > /tmp/marble.fragment <<'EOF'
           CONFIG_ARCH_DIWALI=y
           CONFIG_ARCH_WAIPIO=y
@@ -108,20 +125,10 @@ jobs:
           CONFIG_LOCALVERSION="-marble-diwali"
           EOF
           PATH="/usr/lib/llvm-20/bin:$PATH" scripts/kconfig/merge_config.sh -m arch/arm64/configs/gki_defconfig /tmp/marble.fragment
-          grep -E "ARCH_DIWALI|ARCH_WAIPIO|CONFIG_RUST=|LOCALVERSION" .config | head
-          echo "--- DIAG kconfig tree ---"
-          find . -name "Kconfig*" | wc -l
-          ls -la Kconfig arch/arm64/Kconfig arch/arm64/Kconfig.platforms drivers/Kconfig arch/Kconfig 2>&1
-          echo "--- arch/Kconfig head:"; head -n 12 arch/Kconfig 2>&1
-          echo "--- arm64/Kconfig sources:"; grep -n "Kconfig.platforms\|^source" arch/arm64/Kconfig 2>&1 | head -n 10
-          echo "--- platforms has DIWALI:"; grep -c "ARCH_DIWALI" arch/arm64/Kconfig.platforms 2>&1
-          PATH="/usr/lib/llvm-20/bin:$PATH" make ARCH=arm64 LLVM=1 LLVM_IAS=1 olddefconfig
-          echo "--- DIAG resolved ---"
+          PATH="/usr/lib/llvm-20/bin:$PATH" make ARCH=arm64 LLVM=1 LLVM_IAS=1 olddefconfig || (echo "RETRY sem Kconfig.ext"; rm -f Kconfig.ext; PATH="/usr/lib/llvm-20/bin:$PATH" make ARCH=arm64 LLVM=1 LLVM_IAS=1 olddefconfig)
+          echo "--- resolved ---"
           wc -l .config; grep -c "^CONFIG_" .config || true
-          grep -E "^CONFIG_ARCH_DIWALI|^CONFIG_ARCH_WAIPIO|CONFIG_RUST" .config || echo "ARCH_SYMBOLS_MISSING"
-          PATH="/usr/lib/llvm-20/bin:$PATH" make ARCH=arm64 LLVM=1 LLVM_IAS=1 savedefconfig
-          wc -l defconfig || true
-          echo "--- SAVED DEFCONFIG:"; cat defconfig || true
+          grep -E "^CONFIG_ARCH_DIWALI|^CONFIG_ARCH_WAIPIO" .config || (echo "FATAL: ARCH ausente"; exit 1)
 
       - name: Build Image + modules + dtbs
         run: |
