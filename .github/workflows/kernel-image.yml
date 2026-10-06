@@ -254,6 +254,12 @@ jobs:
             for a in vmlinux.a drivers/base/regmap/built-in.a drivers/usb/gadget/function/built-in.a drivers/pci/controller/built-in.a kernel/built-in.a; do
               [ -f "$a" ] && { echo "--- $a:"; llvm-ar t "$a" 2>/dev/null | sort | uniq -d | head -n 10; } || true
             done
+            echo "=== SCAN todos built-in.a com dupes internos:"
+            for a in $(find . -name "built-in.a" 2>/dev/null | head -n 400); do
+              dups=$(llvm-ar t "$a" 2>/dev/null | sort | uniq -d | head -n 5)
+              [ -n "$dups" ] && { echo "DUP-IN $a:"; echo "$dups"; }
+            done
+            echo "=== SCAN fim"
             echo "=== onde regmap-mmio.o e listado:"
             grep -rn "regmap-mmio\.o" drivers/base/regmap/Makefile drivers/base/Makefile 2>/dev/null | head
             echo "=== onde u_ether.o e listado:"
