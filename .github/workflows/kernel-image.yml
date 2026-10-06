@@ -244,6 +244,7 @@ jobs:
           export PATH="/usr/lib/llvm-19/bin:/usr/local/bin:$PATH"
           make ARCH=arm64 LLVM=1 LLVM_IAS=1 dtbs 2>&1 | tail -n 8; rc=${PIPESTATUS[0]}
           [ $rc -eq 0 ] || exit $rc
+          echo "=== marble dtbs:"; find -L arch/arm64/boot/dts -name "marble*" | head -n 8
         timeout-minutes: 15
 
       - name: Build Image + modules + dtbs
@@ -292,6 +293,7 @@ jobs:
           cp -v System.map ../out/ 2>/dev/null || true
           cp -v .config ../out/marble-defconfig 2>/dev/null || true
           find -L arch/arm64/boot/dts -name "*.dtb" -path "*diwali*" -exec cp -v {} ../out/ \; 2>/dev/null | tail -n 6
+          find -L arch/arm64/boot/dts -name "marble*.dtb*" -exec cp -v {} ../out/ \; 2>/dev/null | tail -n 6
           find -L arch/arm64/boot/dts -name "*.dtbo" -path "*diwali*" -exec cp -v {} ../out/ \; 2>/dev/null | tail -n 6
           find -L arch/arm64/boot/dts -name "*.dtbo" -exec cp -v {} ../out/ \; 2>/dev/null | tail -n 3
           ls -lh ../out/ | head -n 30
