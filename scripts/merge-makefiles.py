@@ -164,18 +164,21 @@ for root, dirs, files in os.walk('.'):
             m15 = re.match(r'^([\w\-\./$(){}]+?)\s*(\+=|:=|=|\?=)\s*(.+?)\s*$', first)
             if m15 and not re.match(r'^(ccflags|asflags|ldflags|cppflags|cflags|aflags|rustflags|bindgen|rtoflags)', m15.group(1)):
                 varname = re.sub(r'\s+', '', m15.group(1))
-                is_composite = bool(re.search(r'-(?:objs|y)(?:-|$|\s)|\-\$\(CONFIG', varname))
                 is_m2name = bool(re.match(r'^(hostprogs|targets|always|extra|clean-files|cmd_\w+|quiet_cmd_\w+)(?:-|$)', varname))
-                val_has_obj = bool(re.search(r'\.(o|a)\b', unit))
-                # ref $ so vale em atribuicao tardia ('='): em ':='
-                # executaria na hora (ex $(shell ...))
-                val_has_ref = bool(re.search(r'\$[({]', unit)) and m15.group(2) != ':='
-                if (is_composite or ((val_has_obj or val_has_ref) and not is_m2name)) and varname not in local_assigns:
-                    if not is_composite:
-                        print('MVAR %s: %s' % (kp, varname[:60]))
-                    add.append(_wrap(unit if unit.endswith('\n') else unit + '\n'))
-                i = j
-                continue
+                if is_m2name:
+                    pass  # territorio do ramo m2 abaixo: nao consome aqui
+                else:
+                    is_composite = bool(re.search(r'-(?:objs|y)(?:-|$|\s)|\-\$\(CONFIG', varname))
+                    val_has_obj = bool(re.search(r'\.(o|a)\b', unit))
+                    # ref $ so vale em atribuicao tardia ('='): em ':='
+                    # executaria na hora (ex $(shell ...))
+                    val_has_ref = bool(re.search(r'\$[({]', unit)) and m15.group(2) != ':='
+                    if (is_composite or val_has_obj or val_has_ref) and varname not in local_assigns:
+                        if not is_composite:
+                            print('MVAR %s: %s' % (kp, varname[:60]))
+                        add.append(_wrap(unit if unit.endswith('\n') else unit + '\n'))
+                    i = j
+                    continue
             m2 = re.match(r'^((?:hostprogs|targets|always|extra|clean-files|cmd_\w+|quiet_cmd_\w+))(?:-[\w$(){}]+)?\s*(\+=|:=|=|\?=)\s*(.*)$', first)
             if m2:
                 var, op = m2.group(1), m2.group(2)
