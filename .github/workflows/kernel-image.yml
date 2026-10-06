@@ -242,7 +242,8 @@ jobs:
           export PATH="/usr/lib/llvm-19/bin:/usr/local/bin:$PATH"
           nproc; free -g | head -n 2
           df -h / /tmp | head -n 5; free -g | head -n 2
-          make -k -j$(nproc) CC="ccache clang" KCPPFLAGS="-I$PWD" Image.gz dtbs 2>&1 | tee /tmp/build.log | tail -n 15; rc=${PIPESTATUS[0]}
+          chmod +x "$GITHUB_WORKSPACE/scripts/ar-dedupe.sh"
+          make -k -j$(nproc) CC="ccache clang" AR="$GITHUB_WORKSPACE/scripts/ar-dedupe.sh" KCPPFLAGS="-I$PWD" Image.gz dtbs 2>&1 | tee /tmp/build.log | tail -n 15; rc=${PIPESTATUS[0]}
           echo "--- ccache ---"; ccache -s | head -n 12
           if [ $rc -ne 0 ]; then
             echo "=== BUILD ERRORS (por arquivo, TODOS) ==="
@@ -266,6 +267,7 @@ jobs:
         run: |
           ls -lh /tmp/build.log 2>/dev/null || echo "sem build.log"
           cp /tmp/build.log "$GITHUB_WORKSPACE/build-full.log" 2>/dev/null || true
+          cp /tmp/ar-dedupe.log "$GITHUB_WORKSPACE/ar-dedupe.log" 2>/dev/null || true
 
       - name: Coleta artefatos
         if: always()
@@ -295,7 +297,9 @@ jobs:
         if: always()
         with:
           name: marble-build-log
-          path: build-full.log
+          path: |
+            build-full.log
+            ar-dedupe.log
           if-no-files-found: warn
           retention-days: 7
 
