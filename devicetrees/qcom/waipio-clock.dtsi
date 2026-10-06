@@ -76,7 +76,7 @@
 		};
 	};
 
-	gcc: clock-controller@100000 {
+	clock_gcc: gcc: clock-controller@100000 {
 		compatible = "qcom,gcc-sm8450", "syscon";
 		reg = <0x100000 0x1f4200>;
 		reg-names = "cc_base";
@@ -106,7 +106,7 @@
 		#reset-cells = <1>;
 	};
 
-	videocc: clock-controller@aaf0000 {
+	clock_videocc: videocc: clock-controller@aaf0000 {
 		compatible = "qcom,sm8450-videocc", "syscon";
 		reg = <0xaaf0000 0x10000>;
 		reg-name = "cc_base";
@@ -122,7 +122,7 @@
 		#reset-cells = <1>;
 	};
 
-	camcc: clock-controller@ade0000 {
+	clock_camcc: camcc: clock-controller@ade0000 {
 		compatible = "qcom,sm8450-camcc", "syscon";
 		reg = <0xade0000 0x20000>;
 		reg-names = "cc_base";
@@ -139,7 +139,7 @@
 		#reset-cells = <1>;
 	};
 
-	dispcc: clock-controller@af00000 {
+	clock_dispcc: dispcc: clock-controller@af00000 {
 		compatible = "qcom,sm8450-dispcc", "syscon";
 		reg = <0xaf00000 0x20000>;
 		reg-name = "cc_base";
@@ -155,7 +155,7 @@
 		#reset-cells = <1>;
 	};
 
-	gpucc: clock-controller@3d90000 {
+	clock_gpucc: gpucc: clock-controller@3d90000 {
 		compatible = "qcom,sm8450-gpucc", "syscon";
 		clock-output-names = "gpucc_clocks";
 		reg = <0x3d90000 0xa000>;

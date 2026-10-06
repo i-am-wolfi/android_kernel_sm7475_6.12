@@ -140,6 +140,13 @@ jobs:
           # arm-smmu.c chama qcom-iommu-util incondicional (fast iova,
           # pgtable ops): provedor exige o simbolo ligado
           CONFIG_QCOM_IOMMU_UTIL=y
+          # Board marble (ukee/SM7475): pinctrl cape + UFS v4 cape.
+          # diwali (ARCH_DIWALI) era outro silicio: off.
+          # CONFIG_ARCH_DIWALI is not set
+          CONFIG_PINCTRL_CAPE=y
+          CONFIG_PHY_QCOM_UFS=y
+          CONFIG_PHY_QCOM_UFS_V4=y
+          CONFIG_PHY_QCOM_UFS_V4_CAPE=y
           # BTF exige pahole novo (dwarves do 22.04 falha com DWARF5 no 6.12:
           # 'Invalid argument'); recovery de teste nao usa BPF CO-RE -> off
           # (volta no final se preciso)
@@ -230,6 +237,13 @@ jobs:
           grep -n "struct ref_tracker_dir {" -A8 include/linux/ref_tracker.h | head -n 12 || true
           echo "=== single-file verbose probe (init/main.o) ==="
           PATH="/usr/lib/llvm-19/bin:$PATH" make ARCH=arm64 LLVM=1 LLVM_IAS=1 V=1 init/main.o 2>&1 | tail -n 25 || true
+
+      - name: DTBs fail-fast (erros de DTS antes do build longo)
+        run: |
+          cd kernel
+          export PATH="/usr/lib/llvm-19/bin:/usr/local/bin:$PATH"
+          make ARCH=arm64 LLVM=1 LLVM_IAS=1 dtbs 2>&1 | tail -n 8
+        timeout-minutes: 15
 
       - name: Build Image + modules + dtbs
         run: |

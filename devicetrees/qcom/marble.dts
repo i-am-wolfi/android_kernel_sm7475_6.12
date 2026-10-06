@@ -1,0 +1,23 @@
+/dts-v1/;
+
+// Board: Xiaomi Poco F5 (marble), SoC ukee/SM7475 (msm-id 591).
+// Fase 1 (boot+adb, sem display/gpu/pcie/thermal): base waipio (drivers
+// sm8450 presentes na tree) + deltas cape + board marble (LOS
+// lineage-24.0, 6.12-nativo) + PMIC pm8350. Display (mdss/dsi), gpu, pcie,
+// thermal e coresight entram na fase 2 (includes comentados no cape.dtsi).
+// NOTA: diwali (msm-id 506) e outro silicio; nao usar p/ marble.
+
+#include "cape.dtsi"
+#include "waipio-regulators.dtsi"
+#include "pm8350.dtsi"
+#include "pm8350b.dtsi"
+#include "pm8350c.dtsi"
+#include "pmk8350.dtsi"
+#include "marble-sm7475.dtsi"
+
+/ {
+	model = "Xiaomi Poco F5 (marble)";
+	compatible = "qcom,marble", "qcom,ukee";
+	qcom,msm-id = <591 0>;
+	qcom,board-id = <0 0>;
+};

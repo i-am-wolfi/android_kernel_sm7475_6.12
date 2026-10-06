@@ -213,6 +213,13 @@ diwali-overlays-dtb-$(CONFIG_ARCH_DIWALI) += $(DIWALI_BOARDS) $(DIWALI_BASE_DTB)
 
 dtb-y += $(diwali-dtb-y) $(diwali-overlays-dtb-y)
 
+# Board marble (Poco F5, ukee/SM7475): base waipio + deltas cape + board
+# marble (fase 1: boot+adb; display/gpu/pcie/thermal na fase 2)
+MARBLE_BASE_DTB += marble.dtb
+marble-dtb-$(CONFIG_ARCH_WAIPIO) += $(MARBLE_BASE_DTB)
+
+dtb-y += $(marble-dtb-y)
+
 MALABAR_BASE_DTB += malabar.dtb malabar-4gb.dtb
 MALABAR_APQ_BASE_DTB += malabarp.dtb
 
