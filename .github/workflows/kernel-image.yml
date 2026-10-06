@@ -276,8 +276,9 @@ jobs:
           cp -v arch/arm64/boot/Image* ../out/ 2>/dev/null || true
           cp -v System.map ../out/ 2>/dev/null || true
           cp -v .config ../out/marble-defconfig 2>/dev/null || true
-          find arch/arm64/boot/dts -name "*.dtb" -path "*diwali*" -exec cp -v {} ../out/ \; 2>/dev/null | tail -n 3
-          find arch/arm64/boot/dts -name "*.dtbo" -exec cp -v {} ../out/ \; 2>/dev/null | tail -n 3
+          find -L arch/arm64/boot/dts -name "*.dtb" -path "*diwali*" -exec cp -v {} ../out/ \; 2>/dev/null | tail -n 6
+          find -L arch/arm64/boot/dts -name "*.dtbo" -path "*diwali*" -exec cp -v {} ../out/ \; 2>/dev/null | tail -n 6
+          find -L arch/arm64/boot/dts -name "*.dtbo" -exec cp -v {} ../out/ \; 2>/dev/null | tail -n 3
           ls -lh ../out/ | head -n 30
           echo "--- modules ---"
           mkdir -p /tmp/mods
