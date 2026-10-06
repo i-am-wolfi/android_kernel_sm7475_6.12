@@ -642,8 +642,8 @@
 				  <FAST_PATH_TCS 1>;
 		power-domains = <&CLUSTER_PD>;
 
-		clock_rpmh: qcom,rpmhclk {
-			compatible = "qcom,waipio-rpmh-clk";
+		clock_rpmh: rpmhcc: qcom,rpmhclk {
+			compatible = "qcom,sm8450-rpmh-clk";  /* fase1: driver sm8450 na tree; waipio==sm8450 */
 			#clock-cells = <1>;
 		};
 
@@ -3164,10 +3164,10 @@
 /* fase1-boot: #include "cape-debug.dtsi" (display/gpu/pcie/thermal entram na fase 2) */
 #include "msm-arm-smmu-waipio.dtsi"
 /* fase1-boot: #include "cape-dma-heaps.dtsi" (display/gpu/pcie/thermal entram na fase 2) */
-/* fase1-boot: #include "cape-gpu.dtsi" (display/gpu/pcie/thermal entram na fase 2) */
+#include "cape-gpu.dtsi"
 /* fase1-boot: #include "cape-thermal.dtsi" (display/gpu/pcie/thermal entram na fase 2) */
 #include "cape-usb.dtsi"
-/* fase1-boot: #include "cape-pcie.dtsi" (display/gpu/pcie/thermal entram na fase 2) */
+#include "cape-pcie.dtsi"
 /* fase1-boot: #include "msm-rdbg.dtsi" (display/gpu/pcie/thermal entram na fase 2) */
 /* fase1-boot: #include "ipcc-test.dtsi" (display/gpu/pcie/thermal entram na fase 2) */
 

@@ -143,7 +143,7 @@ jobs:
           # Board marble (ukee/SM7475): pinctrl cape + UFS v4 cape.
           # diwali (ARCH_DIWALI) era outro silicio: off.
           # CONFIG_ARCH_DIWALI is not set
-          CONFIG_PINCTRL_CAPE=y
+          # pinctrl cape usa sm8450-tlmm via alias (mesmo IP); sem driver separado
           CONFIG_PHY_QCOM_UFS=y
           CONFIG_PHY_QCOM_UFS_V4=y
           CONFIG_PHY_QCOM_UFS_V4_CAPE=y

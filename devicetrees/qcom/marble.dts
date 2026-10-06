@@ -4,16 +4,30 @@
 // Fase 1 (boot+adb, sem display/gpu/pcie/thermal): base waipio (drivers
 // sm8450 presentes na tree) + deltas cape + board marble (LOS
 // lineage-24.0, 6.12-nativo) + PMIC pm8350. Display (mdss/dsi), gpu, pcie,
-// thermal e coresight entram na fase 2 (includes comentados no cape.dtsi).
+// thermal e coresight entram na fase 2.
 // NOTA: diwali (msm-id 506) e outro silicio; nao usar p/ marble.
+// ORDEM IMPORTA: dtc exige label definido ANTES do bloco de extensao
+// &label {} (forward extension da "not found"). Bases/defindores primeiro.
 
+// SoC cape (tlmm/pdc/rpmhcc + includes waipio-clock/qupv3/smmu + deltas)
 #include "cape.dtsi"
-#include "waipio-regulators.dtsi"
+// Nodos base extraidos (spmi, apps_rsc): waipio.dtsi inteiro conflitaria
 #include "marble-soc-base.dtsi"
+// PMICs (antes de quem os referencia)
 #include "pm8350.dtsi"
 #include "pm8350b.dtsi"
 #include "pm8350c.dtsi"
 #include "pmk8350.dtsi"
+// Clocks/i2c/smmu/regulators
+#include "waipio-clock.dtsi"
+#include "waipio-qupv3.dtsi"
+#include "msm-arm-smmu-waipio.dtsi"
+// Deltas cape (estendem labels acima)
+#include "cape-pinctrl.dtsi"
+#include "cape-regulators.dtsi"
+#include "cape-reserved-memory.dtsi"
+#include "cape-usb.dtsi"
+// Board marble (estende tudo acima)
 #include "marble-sm7475.dtsi"
 
 / {

@@ -1,5 +1,7 @@
 
 #define MHZ_TO_KBPS(mhz, w) ((mhz * 1000000 * w) / (1024))
+/* fase1: header gpucc-waipio p/ macros GPUCC_* (tree nao tinha) */
+#include <dt-bindings/clock/qcom,gpucc-waipio.h>
 
 &soc {
 	msm_gpu: qcom,kgsl-3d0@3d00000 {

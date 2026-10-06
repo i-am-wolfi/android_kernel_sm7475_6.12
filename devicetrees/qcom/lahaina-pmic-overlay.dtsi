@@ -12,10 +12,8 @@
 #include "pm8350c.dtsi"
 #include "pm8350b.dtsi"
 #include "pmr735a.dtsi"
+#include "pmr735b.dtsi"
 
-&spmi_bus {
-	#include "pmr735b.dtsi"
-};
 
 &pm8350_gpios {
 	key_vol_up {

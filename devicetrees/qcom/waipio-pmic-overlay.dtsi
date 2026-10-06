@@ -11,11 +11,9 @@
 #include "pm8350c.dtsi"
 #include "pm8350b.dtsi"
 #include "pmr735a.dtsi"
+#include "pmr735b.dtsi"
 #include "pm8450.dtsi"
 
-&spmi_bus {
-	#include "pmr735b.dtsi"
-};
 
 &pmk8350 {
 	/delete-node/ pon_pbs@800;
