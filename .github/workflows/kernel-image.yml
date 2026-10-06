@@ -140,6 +140,11 @@ jobs:
           # arm-smmu.c chama qcom-iommu-util incondicional (fast iova,
           # pgtable ops): provedor exige o simbolo ligado
           CONFIG_QCOM_IOMMU_UTIL=y
+          # BTF exige pahole novo (dwarves do 22.04 falha com DWARF5 no 6.12:
+          # 'Invalid argument'); recovery de teste nao usa BPF CO-RE -> off
+          # (volta no final se preciso)
+          # CONFIG_DEBUG_INFO_BTF is not set
+          # CONFIG_DEBUG_INFO_BTF_MODULES is not set
           # hyp/KVM deletado da tree (Kleaf pega do common); sem par p/ headers -> off no teste
           # CONFIG_KVM is not set
           # pKVM precisa de KVM (mod_arch_specific.hyp) -> off junto
