@@ -36,9 +36,9 @@ def _skip(p):
 
 # Objetos que a tree excluiu DE PROPOSITO (headers qcom incompativeis;
 # nada na tree chama esses simbolos). Nao ressuscitar.
-# - rpm-traces.o: pm.h da tree removeu usage_count/disable_depth e
-#   runtime.c nao chama trace_rpm_*.
-DENY_OBJS = {'rpm-traces.o'}
+# (rpm-traces.o saiu daqui: e so CREATE_TRACE_POINTS, compila com o pm.h
+# atual e o runtime.o precisa dele no link.)
+DENY_OBJS = set()
 
 # Linha obj-/lib-: sufixo arbitrario, inclui funcoes make com espaco e
 # virgula (ex obj-$(subst m,y,$(CONFIG_MMC)) += host/) e atribuicao inicial

@@ -137,6 +137,9 @@ jobs:
           CONFIG_USB_SUPPORT=y
           CONFIG_MMC=y
           CONFIG_GENERIC_PHY=y
+          # arm-smmu.c chama qcom-iommu-util incondicional (fast iova,
+          # pgtable ops): provedor exige o simbolo ligado
+          CONFIG_QCOM_IOMMU_UTIL=y
           # hyp/KVM deletado da tree (Kleaf pega do common); sem par p/ headers -> off no teste
           # CONFIG_KVM is not set
           # pKVM precisa de KVM (mod_arch_specific.hyp) -> off junto
