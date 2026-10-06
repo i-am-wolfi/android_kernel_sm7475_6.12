@@ -123,16 +123,34 @@ for root, dirs, files in os.walk('.'):
                 # funde por token qualquer que seja o op ('+=', ':=', '=',
                 # '?='): o anexo usa sempre '+=' (acrescenta sem
                 # sobrescrever; apos ':=' o '+=' tambem avalia na hora).
-                # So tokens planos (.o/.a, dir/) sao levados, sem vars ou
-                # funcoes, entao o op original nao faz diferenca.
-                toks = re.findall(r'[\w][\w\-./]*/|[\w][\w\-./]*\.(?:o|a)\b', unit)
+                # Alem dos tokens planos (.o/.a, dir/), preserva refs a
+                # vars/funcs no rhs (ex $(mmu-y), $(memory-hotplug-y)):
+                # sem a linha consumidora, os DEFs (m15) entram mas os
+                # objetos nunca linkam (undefined symbol no vmlinux).
+                # rhs = tudo apos o op ja validado pelo OBJ_LINE (nao
+                # re-procurar o op: sufixo pode conter '=' interno)
+                after = first[m.end(3):]
+                rest = after + '\n' + '\n'.join(unit.splitlines()[1:])
+                refs = []
+                for w in re.split(r'\s+', rest):
+                    if '$' not in w or w == '\\':
+                        continue
+                    w2 = w[:-1] if w.endswith('\\') and len(w) > 1 else w
+                    if w2 not in local and w2 not in refs:
+                        refs.append(w2)
+                # tokens planos fora das refs: foo.o dentro de
+                # $(if $(C),foo.o) nao pode entrar incondicional
+                plain_src = re.sub(r'[^\s]*\$[^\s]*', ' ', unit)
+                toks = re.findall(r'[\w][\w\-./]*/|[\w][\w\-./]*\.(?:o|a)\b', plain_src)
                 denied = [t for t in toks if t in DENY_OBJS]
                 if denied:
                     print('DENY %s: %s' % (kp, denied))
                 new_toks = [t for t in toks if t not in have_tokens and t not in DENY_OBJS]
-                if new_toks:
+                if new_toks or refs:
+                    if refs and not new_toks:
+                        print('REFS %s: %s' % (kp, refs[:4]))
                     prefix = '%s%s += ' % (m.group(1), m.group(2))
-                    add.append(_wrap(prefix + ' '.join(new_toks) + '\n'))
+                    add.append(_wrap(prefix + ' '.join(new_toks + refs) + '\n'))
                 i = j
                 continue
             # vars compostas (foo-objs, foo-y, foo-$(CONFIG..)): definem conteudo
