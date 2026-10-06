@@ -74,8 +74,7 @@ for root, dirs, files in os.walk('.'):
             continue
         have_tokens = set(re.findall(r'[\w][\w\-./]*/|[\w][\w\-./]*\.(?:o|a)\b', local))
         local_assigns = set(re.findall(r'(?m)^([^\s#:][^:]*?)\s*[:+?]?=', local))
-        local_targets = set(re.findall(r'(?m)^([^\s#:][^:]*):', local))
-        local_has_liby = bool(re.search(r'(?m)^lib-y\s*[:+?]?=', local))
+        local_targets = set(x.strip() for x in re.findall(r'(?m)^([^\s#:][^:]*):', local))
         local_lines = set(l.strip() for l in local.splitlines())
         # divide base em unidades: linha col-0 + linhas tab seguintes (receita),
         # rastreando guardas ifneq/ifeq/ifdef/ifndef (preservadas ao anexar,
@@ -121,22 +120,18 @@ for root, dirs, files in os.walk('.'):
             first = unit.split('\n', 1)[0].rstrip('\\').strip()
             m = OBJ_LINE.match(first)
             if m:
-                op = m.group(3)
-                # ':=' imediato nao se reconstroi via append (ex lib-y),
-                # exceto lib-y quando o local nem tem (cria do zero)
-                if op == ':=' and (m.group(1) != 'lib' or local_has_liby):
-                    i = j
-                    continue
+                # funde por token qualquer que seja o op ('+=', ':=', '=',
+                # '?='): o anexo usa sempre '+=' (acrescenta sem
+                # sobrescrever; apos ':=' o '+=' tambem avalia na hora).
+                # So tokens planos (.o/.a, dir/) sao levados, sem vars ou
+                # funcoes, entao o op original nao faz diferenca.
                 toks = re.findall(r'[\w][\w\-./]*/|[\w][\w\-./]*\.(?:o|a)\b', unit)
                 denied = [t for t in toks if t in DENY_OBJS]
                 if denied:
                     print('DENY %s: %s' % (kp, denied))
                 new_toks = [t for t in toks if t not in have_tokens and t not in DENY_OBJS]
                 if new_toks:
-                    # '=' inicial vira '+=' anexo (atribuir '=' de novo
-                    # sobrescreveria); ':=' so chega aqui p/ lib-y novo
-                    add_op = '+=' if op != ':=' else ':='
-                    prefix = '%s%s %s ' % (m.group(1), m.group(2), add_op)
+                    prefix = '%s%s += ' % (m.group(1), m.group(2))
                     add.append(_wrap(prefix + ' '.join(new_toks) + '\n'))
                 i = j
                 continue
