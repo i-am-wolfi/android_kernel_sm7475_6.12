@@ -37,6 +37,9 @@ jobs:
           sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)" -- 19 clang lld 2>&1 | tail -n 3
           clang-19 --version | head -n 2
           echo "/usr/lib/llvm-19/bin" >> "$GITHUB_PATH"
+          export PATH="/usr/lib/llvm-19/bin:$PATH"
+          echo 'int main(void){return 0;}' > /tmp/t.c
+          if clang --target=aarch64-linux-gnu -Wl,--allow-multiple-definition /tmp/t.c -o /tmp/t 2>/dev/null; then echo "HAS_ALLOW_MULTIPLE=1"; echo "HAS_ALLOW_MULTIPLE=1" >> "$GITHUB_ENV"; else echo "HAS_ALLOW_MULTIPLE=0"; echo "HAS_ALLOW_MULTIPLE=0" >> "$GITHUB_ENV"; fi
           # ccache do Ubuntu (4.5) quebra com clang-20 (double free): usa release oficial
           curl -sL https://github.com/ccache/ccache/releases/download/v4.14.1/ccache-4.14.1-linux-x86_64-glibc.tar.gz -o /tmp/ccache.tgz
           tar -xzf /tmp/ccache.tgz -C /tmp
@@ -243,6 +246,12 @@ jobs:
           nproc; free -g | head -n 2
           df -h / /tmp | head -n 5; free -g | head -n 2
           chmod +x "$GITHUB_WORKSPACE/scripts/ar-dedupe.sh"
+          if [ "${HAS_ALLOW_MULTIPLE:-0}" = "1" ]; then
+            echo "link tolera multiplas definicoes (teste): KBUILD_LDFLAGS += allow-multiple-definition"
+            printf '\nKBUILD_LDFLAGS += --allow-multiple-definition\n' >> Makefile
+          else
+            echo "linker SEM allow-multiple-definition: sem fallback"
+          fi
           make -k -j$(nproc) CC="ccache clang" AR="$GITHUB_WORKSPACE/scripts/ar-dedupe.sh" KCPPFLAGS="-I$PWD" Image.gz dtbs 2>&1 | tee /tmp/build.log | tail -n 15; rc=${PIPESTATUS[0]}
           echo "--- ccache ---"; ccache -s | head -n 12
           if [ $rc -ne 0 ]; then
