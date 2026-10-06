@@ -49,6 +49,68 @@ OBJ_LINE = re.compile(r'^(obj|lib)\b(.*?)\s*(\+=|\?=|:=|=(?!=))\s+(.+?)\s*$')
 # Mesma deteccao p/ busca multilinha (pm do parent)
 OBJ_ANY = r'^(?:obj|lib)\b.*?(?:\+=|\?=|:=|=(?!=))\s+'
 
+
+def _toks_of(text):
+    """Tokens obj (.o/.a, palavra inteira) e subdir (palavra terminada em /).
+
+    Por palavra (nao por regex de chars): 'phy/dp83867.o' gera SÓ o token
+    do objeto, nunca o fantasma 'phy/' (que suprimiria a descida do parent
+    no merge, ex drivers/net/Makefile perdeu 'phy/' e net/phy nao compilou).
+    """
+    toks = set()
+    for w in re.split(r'\s+', text):
+        w = w.strip()
+        if not w or w == '\\':
+            continue
+        if w.endswith('\\') and len(w) > 1:
+            w = w[:-1]
+        if w.endswith('/'):
+            toks.add(w)
+        elif re.search(r'\.(o|a)$', w):
+            toks.add(w)
+    return toks
+
+
+def _indented_assign_ok(s):
+    """Linha indentada parece atribuicao make propria (nao receita)?"""
+    m = re.match(r'^([\w\-\./$(){}]+?)\s*(\+=|:=|=|\?=)\s*(.*)$', s)
+    if not m:
+        return False
+    var = re.sub(r'\s+', '', m.group(1))
+    if re.match(r'^(ccflags|asflags|ldflags|cppflags|cflags|aflags|rustflags|bindgen|rtoflags)', var):
+        return False
+    if re.match(r'^(hostprogs|targets|always|extra|clean-files|cmd_\w+|quiet_cmd_\w+)(?:-|$)', var):
+        return True  # ramo m2 valida depois
+    if re.search(r'-(?:objs|y)(?:-|$|\s)|\-\$\(CONFIG', var):
+        return True
+    if re.search(r'\.(o|a)\b|\$[({]', s):
+        return True
+    return False
+
+
+def _unit_start(ln):
+    """Linha inicia unidade? col-0 nao-comentario (regra/var/diretiva) OU
+    linha indentada com conteudo make proprio (obj-/lib-, condicional,
+    hostprogs/targets/..., var composta/lista). Receitas ('\\t$(call...)',
+    shell, regras indentadas e texto dentro de define/endef NAO (regra
+    indentada seria ambigua com receita; define e opaco).
+    Sem isso, obj tabulado sob ifneq/ifdef (ex psy.o, madvise.o) e invisivel.
+    """
+    if re.match(r'^[^\s#]', ln):
+        return True
+    s = ln.strip()
+    if not s or s.startswith('#'):
+        return False
+    if re.match(r'^(ifneq|ifeq|ifdef|ifndef|else|endif)\b', s):
+        return True
+    if OBJ_LINE.match(s):
+        return True
+    if re.match(r'^(hostprogs|targets|always|extra|clean-files|cmd_\w+|quiet_cmd_\w+)(?:-[\w$(){}]+)?\s*(\+=|:=|=|\?=)\s*', s):
+        return True
+    if _indented_assign_ok(s):
+        return True
+    return False
+
 merged = 0
 for root, dirs, files in os.walk('.'):
     if root.startswith(('./.git', './out')):
@@ -72,7 +134,7 @@ for root, dirs, files in os.walk('.'):
             continue
         if local == base:
             continue
-        have_tokens = set(re.findall(r'[\w][\w\-./]*/|[\w][\w\-./]*\.(?:o|a)\b', local))
+        have_tokens = _toks_of(local)
         local_assigns = set(re.findall(r'(?m)^([^\s#:][^:]*?)\s*[:+?]?=', local))
         local_targets = set(x.strip() for x in re.findall(r'(?m)^([^\s#:][^:]*):', local))
         local_lines = set(l.strip() for l in local.splitlines())
@@ -83,6 +145,7 @@ for root, dirs, files in os.walk('.'):
         add = []
         i = 0
         guard = []
+        indef = 0
         def _wrap(u):
             if not guard:
                 return u
@@ -94,20 +157,28 @@ for root, dirs, files in os.walk('.'):
 
         while i < len(lines):
             ln = lines[i]
-            if not re.match(r'^[^\s#]', ln):
+            if re.match(r'^\s*define\b', ln):
+                indef += 1
                 i += 1
                 continue
-            gm = re.match(r'^(ifneq|ifeq|ifdef|ifndef)\b', ln)
+            if re.match(r'^\s*endef\b', ln):
+                indef = max(0, indef - 1)
+                i += 1
+                continue
+            if indef or not _unit_start(ln):
+                i += 1
+                continue
+            gm = re.match(r'^\s*(ifneq|ifeq|ifdef|ifndef)\b', ln)
             if gm:
                 _push_guard(ln)
                 i += 1
                 continue
-            if re.match(r'^else\b', ln):
+            if re.match(r'^\s*else\b', ln):
                 if guard:
                     guard[-1] = guard[-1].rstrip('\n') + '\nelse\n'
                 i += 1
                 continue
-            if re.match(r'^endif\b', ln):
+            if re.match(r'^\s*endif\b', ln):
                 if guard:
                     guard.pop()
                 i += 1
@@ -144,7 +215,7 @@ for root, dirs, files in os.walk('.'):
                 # tokens planos fora das refs: foo.o dentro de
                 # $(if $(C),foo.o) nao pode entrar incondicional
                 plain_src = re.sub(r'[^\s]*\$[^\s]*', ' ', unit)
-                toks = re.findall(r'[\w][\w\-./]*/|[\w][\w\-./]*\.(?:o|a)\b', plain_src)
+                toks = _toks_of(plain_src)
                 denied = [t for t in toks if t in DENY_OBJS]
                 if denied:
                     print('DENY %s: %s' % (kp, denied))
@@ -230,8 +301,9 @@ def _obj_subdirs_of(makefile_path):
         return set()
     out = set()
     for m in re.finditer(r'(?m)^(obj|lib)\b.*?(?:\+=|:=)\s*(.+?)\s*$', text):
-        for t in re.findall(r'[\w][\w\-./]*/', m.group(2)):
-            out.add(t)
+        for t in _toks_of(m.group(2)):
+            if t.endswith('/'):
+                out.add(t)
     return out
 
 
@@ -249,11 +321,19 @@ for root, dirs, files in os.walk('.'):
                 lines = f.readlines()
         except OSError:
             continue
-        # guarda por linha (ifdef stack) p/ decisoes seguras
+        # guarda por linha (ifdef stack) p/ decisoes seguras; dentro de
+        # define/endef o texto e opaco (receita) e nunca vira unidade
         guards = []
+        indef_ln = []
         g = 0
+        ind = 0
         for ln in lines:
             s = ln.strip()
+            if re.match(r'^define\b', s):
+                ind += 1
+            elif re.match(r'^endef\b', s):
+                ind = max(0, ind - 1)
+            indef_ln.append(ind > 0)
             if re.match(r'^(ifneq|ifeq|ifdef|ifndef)\b', s):
                 g += 1
             elif re.match(r'^endif\b', s):
@@ -264,6 +344,8 @@ for root, dirs, files in os.walk('.'):
         seen = {}
         for idx, ln in enumerate(lines):
             s = ln.strip()
+            if indef_ln[idx]:
+                continue
             if OBJ_LINE.match(s) and guards[idx] == 0:
                 if s in seen:
                     drop.add(idx)
@@ -274,13 +356,14 @@ for root, dirs, files in os.walk('.'):
         #     -> remove deep (senao mesma subdir desce 2x e duplica no link)
         subs = {}  # token -> [idx]
         for idx, ln in enumerate(lines):
-            if guards[idx] > 0:
+            if guards[idx] > 0 or indef_ln[idx]:
                 continue
             m = OBJ_LINE.match(ln.strip())
             if not m:
                 continue
-            for t in re.findall(r'[\w][\w\-./]*/', m.group(4)):
-                subs.setdefault(t, []).append(idx)
+            for t in _toks_of(m.group(4)):
+                if t.endswith('/'):
+                    subs.setdefault(t, []).append(idx)
         for t, idxs in subs.items():
             inner = t.rstrip('/')
             if '/' not in inner:

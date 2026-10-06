@@ -1,7 +1,9 @@
 name: kernel-image-marble
 
 # Build direto (make + clang) do Image 6.12 p/ marble (diwali/SM7475)
-# sobre base ltdq sm8450-6.12 + gki_defconfig do ACK (android16-6.12).
+# sobre a tree MATERIALIZADA `marble-wip` (ltdq + fill ACK + merges + fixes,
+# commitada pelo snapshot-marble-kernel). Sem merge por build: fixes sao
+# edicoes diretas na tree. Rebuilds apos edicao na tree = workflow_dispatch.
 # Sem Bazel/soc-repo: tudo com `make`, toolchain via llvm.sh.
 on:
   workflow_dispatch:
@@ -52,40 +54,18 @@ jobs:
           key: ccache-marble-${{ hashFiles('.github/workflows/kernel-image.yml') }}-v1
           restore-keys: ccache-marble-
 
-      - name: Sync kernel + devicetrees (base 6.12.r1!) + dt-bindings diwali
+      - name: Sync tree marble-wip + devicetrees + dt-bindings diwali
         run: |
-          git clone --depth 1 --branch lineage-24.0 https://github.com/i-am-wolfi/android_kernel_qcom_sm8450-6.12 kernel
-          # Tree = kernel.lnx.6.12.r1 (Makefile 6.11 desatualizado): fill com ACK 6.12 (headers c/ backports qcom)
-          git clone --depth 1 --branch android16-6.12-2026-06 https://android.googlesource.com/kernel/common ack-src 2>&1 | tail -n 1
-          (cd ack-src && git ls-files | awk '$0 !~ /^(arch\/[^\/]+\/boot\/dts\/)/ && ($0 !~ /^Documentation\// || $0 ~ /(Kconfig|Kbuild|Makefile)/)' > /tmp/common-files.txt)
-          wc -l /tmp/common-files.txt
-          filled=0
-          while read -r f; do
-            if [ ! -e "kernel/$f" ]; then
-              mkdir -p "kernel/$(dirname "$f")" 2>/dev/null || true
-              cp "ack-src/$f" "kernel/$f" 2>/dev/null && filled=$((filled+1)) || echo "SKIP $f"
-            fi
-          done < /tmp/common-files.txt
-          echo "filled=$filled"
-          ls kernel/scripts/basic/fixdep.c kernel/scripts/kconfig/conf.c kernel/scripts/dtc/dtc.c kernel/arch/arm64/Kconfig 2>&1
-          echo "--- spot check fontes core:"
-          ls -la kernel/drivers/extcon/extcon-core.c kernel/drivers/gpio/gpio-generic.c kernel/drivers/scsi/scsi_mod.c kernel/drivers/firmware/arm_scmi/scmi-core.c kernel/include/linux/sched.h 2>&1 || true
-          du -sh kernel 2>/dev/null | head -n 1
-          # parsers (kconfig/dtc/genksyms) 100% ACK: ltdq mistura lexer velho + backend novo
-          # = binarios corrompidos (conf com parse fantasma, genksyms com double-free)
-          for d in scripts/kconfig scripts/dtc scripts/genksyms; do cp -rf ack-src/$d/. kernel/$d/; done
-          # infra do Kconfig 6.12 (funcoes $(...) usadas pelos Kconfigs; a da tree e 6.11 e nao tem)
-          for f in scripts/Kconfig.include scripts/rustc-version.sh scripts/rustc-llvm-version.sh scripts/rust_is_available.sh scripts/cc-version.sh scripts/as-version.sh scripts/ld-version.sh scripts/pahole-version.sh; do
-            [ -f "ack-src/$f" ] && cp -f "ack-src/$f" "kernel/$f" && echo "INFRA $f"
-          done
-          echo "parsers synced"
-          # (merge fino via merge-kconfig.py no passo Wire; aqui so fill)
-          git clone --depth 1 --branch lineage-24.0 https://github.com/ltdq/android_kernel_qcom_sm8450-devicetrees-6.12 kernel/vendor/qcom/devicetrees-stock
+          git clone --depth 1 --branch marble-wip https://github.com/i-am-wolfi/android_kernel_qcom_sm8450-6.12 kernel
+          cd kernel && git log --oneline -3 && cd ..
+          # devicetrees: identico ao fluxo antigo (stock + overlay local);
+          # a vendor/ vinda do snapshot e substituida -> inputs de dts iguais
+          rm -rf kernel/vendor/qcom/devicetrees
+          git clone --depth 1 --branch lineage-24.0 https://github.com/ltdq/android_kernel_qcom_sm8450-devicetrees-6.12 /tmp/dts-stock 2>&1 | tail -n 1
           mkdir -p kernel/vendor/qcom/devicetrees
-          cp -r kernel/vendor/qcom/devicetrees-stock/* kernel/vendor/qcom/devicetrees/
+          cp -r /tmp/dts-stock/* kernel/vendor/qcom/devicetrees/
           cp -r devicetrees/. kernel/vendor/qcom/devicetrees/
-          # defconfig base: gki_defconfig do ACK 6.12 + fragment marble
-          cp ack-src/arch/arm64/configs/gki_defconfig kernel/arch/arm64/configs/gki_defconfig
+          # gki_defconfig ja vem na tree (copiado no snapshot); sanidade
           grep -c CONFIG kernel/arch/arm64/configs/gki_defconfig
           # headers dt-bindings diwali (mesma logica do build.yml)
           fetch_one() {
@@ -125,22 +105,11 @@ jobs:
       - name: Wire dts vendor dir + defconfig marble
         run: |
           cd kernel
-          # devicetrees repo == arch/arm64/boot/dts/vendor (Makefile + bindings + qcom)
+          # symlink ja vem commitado no snapshot; recria por garantia
           ln -sfn ../../../../vendor/qcom/devicetrees arch/arm64/boot/dts/vendor
           ls -la arch/arm64/boot/dts/ | grep vendor
-          # Merge Kconfigs: umbrellas trocadas por versoes qcom-only -> base ACK 6.12
-          # + blocos/sources qcom unicos (sem duplicar simbolos).
-          python3 "$GITHUB_WORKSPACE/scripts/merge-kconfig.py" ../ack-src
-          python3 "$GITHUB_WORKSPACE/scripts/merge-makefiles.py" ../ack-src
-          echo "=== confix check (deep restante = deve ser vazio ou so qcom-only) ==="
-          grep -rn "base/regmap/\|gadget/function/\|interconnect/qcom/\|phy/qualcomm/\|pci/controller/\|pinctrl/qcom/\|thermal/qcom/\|mmc/host/\|ufs/host/" drivers/Makefile drivers/usb/Makefile 2>/dev/null || echo "confix-clean"
-          python3 "$GITHUB_WORKSPACE/scripts/apply-port-fixes.py"
-          echo "=== auditoria de objetos (aviso; enforcement na proxima) ==="
+          echo "=== auditoria de objetos (aviso) ==="
           python3 "$GITHUB_WORKSPACE/scripts/audit-objs.py" || true
-          cd "$GITHUB_WORKSPACE/kernel"
-          git diff --stat | tail -n 5
-          git diff > "$GITHUB_WORKSPACE/merge.patch" || true
-          ls -lh "$GITHUB_WORKSPACE/merge.patch"
           cat > /tmp/marble.fragment <<'EOF'
           CONFIG_ARCH_DIWALI=y
           CONFIG_ARCH_WAIPIO=y
@@ -278,10 +247,8 @@ jobs:
               [ -n "$dups" ] && { echo "DUP-IN $a:"; echo "$dups"; }
             done
             echo "=== SCAN fim"
-            echo "=== onde regmap-mmio.o e listado:"
-            grep -rn "regmap-mmio\.o" drivers/base/regmap/Makefile drivers/base/Makefile 2>/dev/null | head
-            echo "=== onde u_ether.o e listado:"
-            grep -rn "u_ether\.o" drivers/usb/gadget/function/Makefile drivers/usb/gadget/Makefile 2>/dev/null | head
+            echo "=== undefined symbols (agrupados, top 40) ==="
+            grep -aE "ld.lld: error: undefined symbol" /tmp/build.log | sed -E 's/.*undefined symbol: //' | sort | uniq -c | sort -rn | head -n 40 || true
             exit 1
           fi
         timeout-minutes: 300
@@ -324,13 +291,5 @@ jobs:
           path: |
             build-full.log
             ar-dedupe.log
-          if-no-files-found: warn
-          retention-days: 7
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: marble-merge-patch
-          path: merge.patch
           if-no-files-found: warn
           retention-days: 7
