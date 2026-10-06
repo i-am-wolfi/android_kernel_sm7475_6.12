@@ -162,3 +162,90 @@ for root, dirs, files in os.walk('.'):
             merged += 1
             print('MKEDGE %s (+%d linhas)' % (kp, len(add)))
 print('mkmerged=%d' % merged)
+
+
+def _obj_subdirs_of(makefile_path):
+    """Conjunto de subdirs (ex 'regmap/') referenciados como alvo em obj-/lib-."""
+    try:
+        with open(makefile_path, encoding='utf-8', errors='replace') as f:
+            text = f.read()
+    except OSError:
+        return set()
+    out = set()
+    for m in re.finditer(r'(?m)^(?:obj|lib)(?:-[\w$(){}]+)?\s*(?:\+=|:=)\s*(.+?)\s*$', text):
+        for t in re.findall(r'[\w][\w\-./]*/', m.group(1)):
+            out.add(t)
+    return out
+
+
+fixed = 0
+for root, dirs, files in os.walk('.'):
+    if root.startswith(('./.git', './out')):
+        dirs[:] = []
+        continue
+    for fn in files:
+        if fn not in NAMES:
+            continue
+        kp = os.path.join(root, fn)
+        try:
+            with open(kp, encoding='utf-8', errors='replace') as f:
+                lines = f.readlines()
+        except OSError:
+            continue
+        # guarda por linha (ifdef stack) p/ decisoes seguras
+        guards = []
+        g = 0
+        for ln in lines:
+            s = ln.strip()
+            if re.match(r'^(ifneq|ifeq|ifdef|ifndef)\b', s):
+                g += 1
+            elif re.match(r'^endif\b', s):
+                g = max(0, g - 1)
+            guards.append(g)
+        drop = set()
+        # R1: linhas obj- exatas duplicadas, ambas sem guarda -> mantem a 1a
+        seen = {}
+        for idx, ln in enumerate(lines):
+            s = ln.strip()
+            if re.match(r'^(obj|lib)(?:-[\w$(){}]+)?\s*(?:\+=|:=)', s) and guards[idx] == 0:
+                if s in seen:
+                    drop.add(idx)
+                    print('DUPELN %s: %s' % (kp, s[:90]))
+                else:
+                    seen[s] = idx
+        # R2: deep D/sub/ + parent D/ (ambos sem guarda) e parent cobre sub/
+        #     -> remove deep (senao mesma subdir desce 2x e duplica no link)
+        subs = {}  # token -> [idx]
+        for idx, ln in enumerate(lines):
+            if guards[idx] > 0:
+                continue
+            m = re.match(r'^(?:obj|lib)(?:-[\w$(){}]+)?\s*(?:\+=|:=)\s*(.+?)\s*$', ln.strip())
+            if not m:
+                continue
+            for t in re.findall(r'[\w][\w\-./]*/', m.group(1)):
+                subs.setdefault(t, []).append(idx)
+        for t, idxs in subs.items():
+            inner = t.rstrip('/')
+            if '/' not in inner:
+                continue
+            parent = inner.split('/')[0] + '/'
+            if parent not in subs:
+                continue
+            mkparent = os.path.normpath(os.path.join(os.path.dirname(kp), parent, 'Makefile'))
+            if not os.path.isfile(mkparent):
+                continue
+            try:
+                with open(mkparent, encoding='utf-8', errors='replace') as f:
+                    pm = f.read()
+            except OSError:
+                continue
+            sub = inner.split('/')[1] + '/'
+            if re.search(r'(?m)^(?:obj|lib)(?:-[\w$(){}]+)?\s*(?:\+=|:=).*?\b%s' % re.escape(sub), pm):
+                for idx in idxs:
+                    drop.add(idx)
+                print('CONFIX %s: remove deep %s (coberto por %s)' % (kp, t, parent))
+        if drop:
+            with open(kp, 'w') as f:
+                f.writelines([ln for idx, ln in enumerate(lines) if idx not in drop])
+            fixed += 1
+print('confix=%d' % fixed)

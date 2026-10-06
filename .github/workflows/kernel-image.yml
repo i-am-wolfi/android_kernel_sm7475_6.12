@@ -38,8 +38,6 @@ jobs:
           clang-19 --version | head -n 2
           echo "/usr/lib/llvm-19/bin" >> "$GITHUB_PATH"
           export PATH="/usr/lib/llvm-19/bin:$PATH"
-          echo 'int main(void){return 0;}' > /tmp/t.c
-          if clang --target=aarch64-linux-gnu -Wl,--allow-multiple-definition /tmp/t.c -o /tmp/t 2>/dev/null; then echo "HAS_ALLOW_MULTIPLE=1"; echo "HAS_ALLOW_MULTIPLE=1" >> "$GITHUB_ENV"; else echo "HAS_ALLOW_MULTIPLE=0"; echo "HAS_ALLOW_MULTIPLE=0" >> "$GITHUB_ENV"; fi
           # ccache do Ubuntu (4.5) quebra com clang-20 (double free): usa release oficial
           curl -sL https://github.com/ccache/ccache/releases/download/v4.14.1/ccache-4.14.1-linux-x86_64-glibc.tar.gz -o /tmp/ccache.tgz
           tar -xzf /tmp/ccache.tgz -C /tmp
@@ -134,6 +132,8 @@ jobs:
           # + blocos/sources qcom unicos (sem duplicar simbolos).
           python3 "$GITHUB_WORKSPACE/scripts/merge-kconfig.py" ../ack-src
           python3 "$GITHUB_WORKSPACE/scripts/merge-makefiles.py" ../ack-src
+          echo "=== confix check (deep restante = deve ser vazio ou so qcom-only) ==="
+          grep -rn "base/regmap/\|gadget/function/\|interconnect/qcom/\|phy/qualcomm/\|pci/controller/\|pinctrl/qcom/\|thermal/qcom/\|mmc/host/\|ufs/host/" drivers/Makefile drivers/usb/Makefile 2>/dev/null || echo "confix-clean"
           python3 "$GITHUB_WORKSPACE/scripts/apply-port-fixes.py"
           echo "=== auditoria de objetos (aviso; enforcement na proxima) ==="
           python3 "$GITHUB_WORKSPACE/scripts/audit-objs.py" || true
@@ -153,6 +153,21 @@ jobs:
           # CONFIG_VIRTIO_BLK is not set
           # MHI misc (modem/WLAN): pm.c chama API que so existe com MISC ligado
           CONFIG_MHI_BUS_MISC=y
+          # Confix remove deep D/sub/ qdo parent D/ cobre (evita descida dupla
+          # e simbolo duplicado no vmlinux): parent precisa estar ON
+          CONFIG_REGMAP=y
+          CONFIG_INTERCONNECT=y
+          CONFIG_INPUT=y
+          CONFIG_IIO=y
+          CONFIG_PINCTRL=y
+          CONFIG_THERMAL=y
+          CONFIG_DMA_SHARED_BUFFER=y
+          CONFIG_UIO=y
+          CONFIG_CPU_IDLE=y
+          CONFIG_USB_GADGET=y
+          CONFIG_USB_SUPPORT=y
+          CONFIG_MMC=y
+          CONFIG_GENERIC_PHY=y
           # hyp/KVM deletado da tree (Kleaf pega do common); sem par p/ headers -> off no teste
           # CONFIG_KVM is not set
           # pKVM precisa de KVM (mod_arch_specific.hyp) -> off junto
@@ -246,12 +261,6 @@ jobs:
           nproc; free -g | head -n 2
           df -h / /tmp | head -n 5; free -g | head -n 2
           chmod +x "$GITHUB_WORKSPACE/scripts/ar-dedupe.sh"
-          if [ "${HAS_ALLOW_MULTIPLE:-0}" = "1" ]; then
-            echo "link tolera multiplas definicoes (teste): KBUILD_LDFLAGS += allow-multiple-definition"
-            printf '\nKBUILD_LDFLAGS += --allow-multiple-definition\n' >> Makefile
-          else
-            echo "linker SEM allow-multiple-definition: sem fallback"
-          fi
           make -k -j$(nproc) CC="ccache clang" AR="$GITHUB_WORKSPACE/scripts/ar-dedupe.sh" KCPPFLAGS="-I$PWD" Image.gz dtbs 2>&1 | tee /tmp/build.log | tail -n 15; rc=${PIPESTATUS[0]}
           echo "--- ccache ---"; ccache -s | head -n 12
           if [ $rc -ne 0 ]; then
