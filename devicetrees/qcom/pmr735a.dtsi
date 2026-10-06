@@ -1,8 +1,3 @@
-// SPDX-License-Identifier: BSD-3-Clause
-/*
- * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
- */
-
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/spmi/spmi.h>
 
@@ -12,7 +7,7 @@
 	interrupt-controller;
 	#interrupt-cells = <4>;
 
-	pmr735a_1: qcom,pmr735a@4 {
+	pmr735a_spmi: qcom,pmr735a@4 {
 		compatible = "qcom,spmi-pmic";
 		reg = <4 SPMI_USID>;
 		#address-cells = <1>;
@@ -53,13 +48,13 @@
 			pmr735a_trip1: trip1 {
 				temperature = <115000>;
 				hysteresis = <0>;
-				type = "critical";
+				type = "passive";
 			};
 
 			pmr735a_trip2: trip2 {
 				temperature = <145000>;
 				hysteresis = <0>;
-				type = "critical";
+				type = "passive";
 			};
 		};
 	};

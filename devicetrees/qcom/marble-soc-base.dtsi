@@ -1,0 +1,65 @@
+// SoC base nodes p/ marble (extraidos de waipio.dtsi): spmi + apps_rsc/rpmhcc.
+// Fase 1 boot; waipio.dtsi inteiro nao entra (conflitaria c/ cape.dtsi).
+&soc {
+	spmi_bus: spmi0_bus: qcom,spmi@c42d000 {
+		compatible = "qcom,spmi-pmic-arb";
+		reg = <0xc42d000 0x4000>,
+		      <0xc400000 0x3000>,
+		      <0xc500000 0x400000>,
+		      <0xc440000 0x80000>,
+		      <0xc4c0000 0x10000>;
+		reg-names = "cnfg", "core", "chnls", "obsrvr", "intr";
+		interrupts-extended = <&pdc 1 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "periph_irq";
+		interrupt-controller;
+		#interrupt-cells = <4>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+		cell-index = <0>;
+		qcom,channel = <0>;
+		qcom,ee = <0>;
+		qcom,bus-id = <0>;
+	};
+
+	apps_rsc: rsc@17a00000 {
+		label = "apps_rsc";
+		compatible = "qcom,rpmh-rsc";
+		reg = <0x17a00000 0x10000>,
+		      <0x17a10000 0x10000>,
+		      <0x17a20000 0x10000>,
+		      <0x17a30000 0x10000>;
+		reg-names = "drv-0", "drv-1", "drv-2", "drv-3";
+		interrupts = <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 5 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,drv-count = <3>;
+		apps_rsc_drv2: drv@2 {
+			qcom,tcs-offset = <0xd00>;
+			qcom,drv-id = <2>;
+			power-domains = <&CLUSTER_PD>;
+			channel@0 {
+				qcom,tcs-config = <ACTIVE_TCS  3>,
+						<SLEEP_TCS   2>,
+						<WAKE_TCS    2>,
+						<CONTROL_TCS 0>,
+						<FAST_PATH_TCS 1>;
+			};
+
+			apps_bcm_voter: bcm_voter {
+				compatible = "qcom,bcm-voter";
+			};
+
+			clock_rpmh: rpmhcc: clock-controller {
+				compatible = "qcom,sm8450-rpmh-clk";
+				#clock-cells = <1>;
+			};
+
+			dcvs_fp: qcom,dcvs-fp {
+				compatible = "qcom,dcvs-fp";
+				qcom,ddr-bcm-name = "MC3";
+				qcom,llcc-bcm-name = "SH5";
+			};
+
+		};
+	};
+};

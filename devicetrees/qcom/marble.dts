@@ -9,6 +9,7 @@
 
 #include "cape.dtsi"
 #include "waipio-regulators.dtsi"
+#include "marble-soc-base.dtsi"
 #include "pm8350.dtsi"
 #include "pm8350b.dtsi"
 #include "pm8350c.dtsi"
