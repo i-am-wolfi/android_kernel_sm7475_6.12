@@ -40,6 +40,13 @@ def _skip(p):
 #   runtime.c nao chama trace_rpm_*.
 DENY_OBJS = {'rpm-traces.o'}
 
+# Linha obj-/lib-: sufixo arbitrario, inclui funcoes make com espaco e
+# virgula (ex obj-$(subst m,y,$(CONFIG_MMC)) += host/). Grupos:
+# 1=obj|lib 2=sufixo 3=op 4=rhs
+OBJ_LINE = re.compile(r'^(obj|lib)\b(.*?)\s*(\+=|:=)\s*(.+?)\s*$')
+# Mesma deteccao p/ busca multilinha (pm do parent)
+OBJ_ANY = r'^(?:obj|lib)\b.*?(?:\+=|:=)'
+
 merged = 0
 for root, dirs, files in os.walk('.'):
     if root.startswith(('./.git', './out')):
@@ -110,16 +117,16 @@ for root, dirs, files in os.walk('.'):
                 unit += lines[j]
                 j += 1
             first = unit.split('\n', 1)[0].rstrip('\\').strip()
-            m = re.match(r'^(obj|lib)(?:-[\w$(){}]+)?\s*(\+=|:=)\s*(.+?)\s*$', first)
+            m = OBJ_LINE.match(first)
             if m:
-                if not (m.group(2) == ':=' and (m.group(1) != 'lib' or local_has_liby)):
+                if not (m.group(3) == ':=' and (m.group(1) != 'lib' or local_has_liby)):
                     toks = re.findall(r'[\w][\w\-./]*/|[\w][\w\-./]*\.(?:o|a)\b', unit)
                     denied = [t for t in toks if t in DENY_OBJS]
                     if denied:
                         print('DENY %s: %s' % (kp, denied))
                     new_toks = [t for t in toks if t not in have_tokens and t not in DENY_OBJS]
                     if new_toks:
-                        prefix = re.match(r'^((?:obj|lib)(?:-[\w$(){}]+)?\s*(?:\+=|:=)\s*)', first).group(1)
+                        prefix = '%s%s %s ' % (m.group(1), m.group(2), m.group(3))
                         add.append(_wrap(prefix + ' '.join(new_toks) + '\n'))
                 i = j
                 continue
@@ -172,8 +179,8 @@ def _obj_subdirs_of(makefile_path):
     except OSError:
         return set()
     out = set()
-    for m in re.finditer(r'(?m)^(?:obj|lib)(?:-[\w$(){}]+)?\s*(?:\+=|:=)\s*(.+?)\s*$', text):
-        for t in re.findall(r'[\w][\w\-./]*/', m.group(1)):
+    for m in re.finditer(r'(?m)^(obj|lib)\b.*?(?:\+=|:=)\s*(.+?)\s*$', text):
+        for t in re.findall(r'[\w][\w\-./]*/', m.group(2)):
             out.add(t)
     return out
 
@@ -207,7 +214,7 @@ for root, dirs, files in os.walk('.'):
         seen = {}
         for idx, ln in enumerate(lines):
             s = ln.strip()
-            if re.match(r'^(obj|lib)(?:-[\w$(){}]+)?\s*(?:\+=|:=)', s) and guards[idx] == 0:
+            if OBJ_LINE.match(s) and guards[idx] == 0:
                 if s in seen:
                     drop.add(idx)
                     print('DUPELN %s: %s' % (kp, s[:90]))
@@ -219,10 +226,10 @@ for root, dirs, files in os.walk('.'):
         for idx, ln in enumerate(lines):
             if guards[idx] > 0:
                 continue
-            m = re.match(r'^(?:obj|lib)(?:-[\w$(){}]+)?\s*(?:\+=|:=)\s*(.+?)\s*$', ln.strip())
+            m = OBJ_LINE.match(ln.strip())
             if not m:
                 continue
-            for t in re.findall(r'[\w][\w\-./]*/', m.group(1)):
+            for t in re.findall(r'[\w][\w\-./]*/', m.group(4)):
                 subs.setdefault(t, []).append(idx)
         for t, idxs in subs.items():
             inner = t.rstrip('/')
@@ -240,7 +247,7 @@ for root, dirs, files in os.walk('.'):
             except OSError:
                 continue
             sub = inner.split('/')[1] + '/'
-            if re.search(r'(?m)^(?:obj|lib)(?:-[\w$(){}]+)?\s*(?:\+=|:=).*?\b%s' % re.escape(sub), pm):
+            if re.search(r'(?m)' + OBJ_ANY + r'.*?\b%s' % re.escape(sub), pm):
                 for idx in idxs:
                     drop.add(idx)
                 print('CONFIX %s: remove deep %s (coberto por %s)' % (kp, t, parent))
