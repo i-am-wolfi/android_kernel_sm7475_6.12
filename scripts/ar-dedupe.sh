@@ -26,7 +26,7 @@ for a in "$@"; do
   esac
   case "$a" in
     *.*|*/*) ;;
-    *) continue ;;  # flag colada sem '-' (rcsD, cDPrST, mPiT ja filtrado acima)
+    *) flags="$flags $a"; continue ;;  # flag colada sem '-' (rcsD, cDPrST)
   esac
   if [ -z "$archive" ]; then
     archive="$a"
