@@ -118,6 +118,9 @@ for root, dirs, files in os.walk('.'):
                 unit += lines[j]
                 j += 1
             first = unit.split('\n', 1)[0].rstrip('\\').strip()
+            # p/ dedup exato usa a linha crua (com '\' de continuacao):
+            # 'first' sem barra nunca casaria com o que foi anexado.
+            raw_first = unit.split('\n', 1)[0].strip()
             m = OBJ_LINE.match(first)
             if m:
                 # funde por token qualquer que seja o op ('+=', ':=', '=',
@@ -153,13 +156,23 @@ for root, dirs, files in os.walk('.'):
                     add.append(_wrap(prefix + ' '.join(new_toks + refs) + '\n'))
                 i = j
                 continue
-            # vars compostas (foo-objs, foo-y, foo-$(CONFIG..)): definem conteudo
-            # de objeto linkado; vao junto com o obj- correspondente (senao
-            # "No rule"). So se a var nao existe no local. Nunca flags.
+            # vars compostas (foo-objs, foo-y, foo-$(CONFIG..)) e vars de lista
+            # de objetos sem sufixo (ex libfdt_files = fdt.o ...): definem
+            # conteudo linkado; vao junto com o obj- correspondente (senao
+            # "No rule"). So se a var nao existe no local. Nunca flags
+            # (ccflags/ldflags/...) nem nomes do ramo m2 (hostprogs/...).
             m15 = re.match(r'^([\w\-\./$(){}]+?)\s*(\+=|:=|=|\?=)\s*(.+?)\s*$', first)
-            if m15 and re.search(r'-(?:objs|y)(?:-|$|\s)|\-\$\(CONFIG', m15.group(1)) and not re.match(r'^(ccflags|asflags|ldflags|cppflags|cflags|aflags|rustflags|bindgen|rtoflags)', m15.group(1)):
+            if m15 and not re.match(r'^(ccflags|asflags|ldflags|cppflags|cflags|aflags|rustflags|bindgen|rtoflags)', m15.group(1)):
                 varname = re.sub(r'\s+', '', m15.group(1))
-                if varname not in local_assigns:
+                is_composite = bool(re.search(r'-(?:objs|y)(?:-|$|\s)|\-\$\(CONFIG', varname))
+                is_m2name = bool(re.match(r'^(hostprogs|targets|always|extra|clean-files|cmd_\w+|quiet_cmd_\w+)(?:-|$)', varname))
+                val_has_obj = bool(re.search(r'\.(o|a)\b', unit))
+                # ref $ so vale em atribuicao tardia ('='): em ':='
+                # executaria na hora (ex $(shell ...))
+                val_has_ref = bool(re.search(r'\$[({]', unit)) and m15.group(2) != ':='
+                if (is_composite or ((val_has_obj or val_has_ref) and not is_m2name)) and varname not in local_assigns:
+                    if not is_composite:
+                        print('MVAR %s: %s' % (kp, varname[:60]))
                     add.append(_wrap(unit if unit.endswith('\n') else unit + '\n'))
                 i = j
                 continue
@@ -167,9 +180,20 @@ for root, dirs, files in os.walk('.'):
             if m2:
                 var, op = m2.group(1), m2.group(2)
                 if op == '+=':
-                    if first.strip() not in local_lines:
+                    if raw_first not in local_lines:
                         add.append(_wrap(unit if unit.endswith('\n') else unit + '\n'))
                 elif var not in local_assigns:
+                    add.append(_wrap(unit if unit.endswith('\n') else unit + '\n'))
+                i = j
+                continue
+            # chamadas com efeito colateral (ex $(foreach f, $(list),
+            # $(eval CFLAGS_$(f) = ...))): sem elas, objetos entram sem
+            # flags e quebram. Nunca $(error)/$(warning). Dedup exato
+            # (re-avaliar seria harmless p/ '=' mas evita ruido).
+            mF = re.match(r'^\$\((foreach|eval|call)\b', first)
+            if mF:
+                if raw_first not in local_lines:
+                    print('MFUNC %s: %s' % (kp, first[:70]))
                     add.append(_wrap(unit if unit.endswith('\n') else unit + '\n'))
                 i = j
                 continue

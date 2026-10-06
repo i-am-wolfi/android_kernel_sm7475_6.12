@@ -94,23 +94,66 @@ for root, dirs, files in os.walk('.'):
             r0 = resolve_src(s, os.path.dirname(kp))
             if r0:
                 base_srcs.add(r0)
+        MARK = '# --- marble: qcom additions (merged) ---'
+        # idempotencia: recalcula sempre sobre o original pre-marcador;
+        # senao blocos ja-anexados seriam re-anexados a cada passada.
+        orig = local.split(MARK)[0] if MARK in local else local
         add_src, seen = [], set()
-        for s in sources_of(local):
+        for s in sources_of(orig):
             r = resolve_src(s, os.path.dirname(kp))
             if r is None or r in base_srcs or r in seen:
                 continue
             seen.add(r)
             add_src.append('source "%s"\n' % r)
+        local_names = set(n for _, n, _ in top_blocks(orig))
+        base_blocks = top_blocks(base)
+        base_names = set(n for _, n, _ in base_blocks)
+        local_bodies = {n: b for _, n, b in top_blocks(orig)}
+        base_bodies = {n: b for _, n, b in base_blocks}
         add_blk = []
-        for kind, name, body in top_blocks(local):
+        for kind, name, body in top_blocks(orig):
             if not re.search(r'(?m)^\s*(?:config|menuconfig)\s+%s\b' % re.escape(name), base):
                 add_blk.append(body if body.endswith('\n') else body + '\n')
-        if add_src or add_blk:
-            extra = '\n# --- marble: qcom additions (merged) ---\n' + ''.join(add_src) + ''.join(add_blk)
-            with open(kp, 'w') as f:
-                f.write(base + extra)
-            merged += 1
-            print('MERGE %s (+%d src +%d blk)' % (kp, len(add_src), len(add_blk)))
+        # Simbolos do upstream ausentes no local (bool sem prompt, libs,
+        # defaults: ex NET_SCH_FIFO, NET_SCH_MQPRIO_LIB). Sem eles, selects
+        # do menuconfig nao tem alvo e o obj some no link. A tree aparou
+        # ate selects de blocos copiados, entao a base completa e a fonte.
+        for kind, name, body in base_blocks:
+            if name not in local_names:
+                add_blk.append(body if body.endswith('\n') else body + '\n')
+                print('KBASE %s: restaura %s %s' % (kp, kind, name))
+
+        def _sel(body):
+            return [l.strip() for l in body.splitlines()
+                    if re.match(r'\s*(select|imply)\b', l)]
+
+        # selects/implies qcom-only em simbolos comuns: blocos config
+        # acumulam no kconfig, entao anexa mini-bloco (nao edita a base).
+        # Tambem detecta selects DA BASE ausentes no local (tree aparou
+        # selects ate de blocos copiados): ai a reescrita p/ base e
+        # obrigatoria (e a condicao de escrita, p/ idempotencia).
+        n_extra_sel = 0
+        needs_base = False
+        for name in sorted(set(local_bodies) & set(base_bodies)):
+            have = set(_sel(base_bodies[name]))
+            for s in _sel(local_bodies[name]):
+                if s not in have:
+                    add_blk.append('config %s\n\t%s\n' % (name, s))
+                    n_extra_sel += 1
+            lhave = set(_sel(local_bodies[name]))
+            for s in _sel(base_bodies[name]):
+                if s not in lhave:
+                    needs_base = True
+                    break
+        if n_extra_sel:
+            print('KSEL %s: +%d selects qcom' % (kp, n_extra_sel))
+        if add_src or add_blk or needs_base:
+            extra = '\n' + MARK + '\n' + ''.join(add_src) + ''.join(add_blk)
+            if base + extra != local:
+                with open(kp, 'w') as f:
+                    f.write(base + extra)
+                merged += 1
+                print('MERGE %s (+%d src +%d blk)' % (kp, len(add_src), len(add_blk)))
 print('merged=%d' % merged)
 
 
