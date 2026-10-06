@@ -22,6 +22,11 @@ for a in "$@"; do
     -*) continue ;;
     @*) exec "$REAL_AR" "$@" ;;  # response file: nao mexe
     *)
+      # flags coladas sem '-' (rcsD, cDPrST, mPiT): so letras, sem ponto/barra
+      case "$a" in
+        *.*|*/*) ;;
+        *) continue ;;
+      esac
       if [ -z "$archive" ]; then
         archive="$a"
       else
