@@ -41,11 +41,13 @@ def _skip(p):
 DENY_OBJS = {'rpm-traces.o'}
 
 # Linha obj-/lib-: sufixo arbitrario, inclui funcoes make com espaco e
-# virgula (ex obj-$(subst m,y,$(CONFIG_MMC)) += host/). Grupos:
-# 1=obj|lib 2=sufixo 3=op 4=rhs
-OBJ_LINE = re.compile(r'^(obj|lib)\b(.*?)\s*(\+=|:=)\s*(.+?)\s*$')
+# virgula (ex obj-$(subst m,y,$(CONFIG_MMC)) += host/) e atribuicao inicial
+# com '=' (ex obj-y = fork.o panic.o \ + continuacoes, usada nos Makefiles
+# centrais kernel/mm/fs). Grupos: 1=obj|lib 2=sufixo 3=op 4=rhs.
+# O op exige espaco depois (senao '=' dentro de $(X=y) vira falso op).
+OBJ_LINE = re.compile(r'^(obj|lib)\b(.*?)\s*(\+=|\?=|:=|=(?!=))\s+(.+?)\s*$')
 # Mesma deteccao p/ busca multilinha (pm do parent)
-OBJ_ANY = r'^(?:obj|lib)\b.*?(?:\+=|:=)'
+OBJ_ANY = r'^(?:obj|lib)\b.*?(?:\+=|\?=|:=|=(?!=))\s+'
 
 merged = 0
 for root, dirs, files in os.walk('.'):
@@ -119,15 +121,23 @@ for root, dirs, files in os.walk('.'):
             first = unit.split('\n', 1)[0].rstrip('\\').strip()
             m = OBJ_LINE.match(first)
             if m:
-                if not (m.group(3) == ':=' and (m.group(1) != 'lib' or local_has_liby)):
-                    toks = re.findall(r'[\w][\w\-./]*/|[\w][\w\-./]*\.(?:o|a)\b', unit)
-                    denied = [t for t in toks if t in DENY_OBJS]
-                    if denied:
-                        print('DENY %s: %s' % (kp, denied))
-                    new_toks = [t for t in toks if t not in have_tokens and t not in DENY_OBJS]
-                    if new_toks:
-                        prefix = '%s%s %s ' % (m.group(1), m.group(2), m.group(3))
-                        add.append(_wrap(prefix + ' '.join(new_toks) + '\n'))
+                op = m.group(3)
+                # ':=' imediato nao se reconstroi via append (ex lib-y),
+                # exceto lib-y quando o local nem tem (cria do zero)
+                if op == ':=' and (m.group(1) != 'lib' or local_has_liby):
+                    i = j
+                    continue
+                toks = re.findall(r'[\w][\w\-./]*/|[\w][\w\-./]*\.(?:o|a)\b', unit)
+                denied = [t for t in toks if t in DENY_OBJS]
+                if denied:
+                    print('DENY %s: %s' % (kp, denied))
+                new_toks = [t for t in toks if t not in have_tokens and t not in DENY_OBJS]
+                if new_toks:
+                    # '=' inicial vira '+=' anexo (atribuir '=' de novo
+                    # sobrescreveria); ':=' so chega aqui p/ lib-y novo
+                    add_op = '+=' if op != ':=' else ':='
+                    prefix = '%s%s %s ' % (m.group(1), m.group(2), add_op)
+                    add.append(_wrap(prefix + ' '.join(new_toks) + '\n'))
                 i = j
                 continue
             # vars compostas (foo-objs, foo-y, foo-$(CONFIG..)): definem conteudo
