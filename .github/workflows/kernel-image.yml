@@ -242,7 +242,8 @@ jobs:
         run: |
           cd kernel
           export PATH="/usr/lib/llvm-19/bin:/usr/local/bin:$PATH"
-          make ARCH=arm64 LLVM=1 LLVM_IAS=1 dtbs 2>&1 | tail -n 8
+          make ARCH=arm64 LLVM=1 LLVM_IAS=1 dtbs 2>&1 | tail -n 8; rc=${PIPESTATUS[0]}
+          [ $rc -eq 0 ] || exit $rc
         timeout-minutes: 15
 
       - name: Build Image + modules + dtbs
