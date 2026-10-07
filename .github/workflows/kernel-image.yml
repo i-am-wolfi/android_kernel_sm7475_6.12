@@ -150,6 +150,9 @@ jobs:
           CONFIG_PHY_QCOM_SNPS_EUSB2=y
           CONFIG_PHY_QCOM_QMP=y
           CONFIG_PHY_QCOM_QMP_USB=y
+          # combo/drivers QMP obsoletos ligam por default do pai; fora
+          # CONFIG_PHY_QCOM_QMP_COMBO is not set
+          # CONFIG_PHY_QCOM_QMP_UFS is not set
           # BTF exige pahole novo (dwarves do 22.04 falha com DWARF5 no 6.12:
           # 'Invalid argument'); recovery de teste nao usa BPF CO-RE -> off
           # (volta no final se preciso)
