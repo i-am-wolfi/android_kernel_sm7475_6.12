@@ -150,6 +150,10 @@ jobs:
           CONFIG_PHY_QCOM_SNPS_EUSB2=y
           CONFIG_PHY_QCOM_QMP=y
           CONFIG_PHY_QCOM_QMP_USB=y
+          # crash log vai p/ flash (mtdoops), como o stock (pstore/ramoops
+          # sempre vazio porque o stock nao tem regiao ramoops): cmdline
+          # mtdoops.fingerprint ja vem no vendor_boot stock
+          CONFIG_MTDOOPS=y
           # combo/drivers QMP obsoletos ligam por default do pai; fora
           # CONFIG_PHY_QCOM_QMP_COMBO is not set
           # CONFIG_PHY_QCOM_QMP_UFS is not set
