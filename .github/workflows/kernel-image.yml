@@ -148,6 +148,7 @@ jobs:
           CONFIG_PHY_QCOM_UFS_V4_CAPE=y
           # USB p/ adb: phys eusb2 + qmp-usb (dwc3 precisa dos dois p/ subir)
           CONFIG_PHY_QCOM_SNPS_EUSB2=y
+          CONFIG_PHY_QCOM_QMP=y
           CONFIG_PHY_QCOM_QMP_USB=y
           # BTF exige pahole novo (dwarves do 22.04 falha com DWARF5 no 6.12:
           # 'Invalid argument'); recovery de teste nao usa BPF CO-RE -> off
