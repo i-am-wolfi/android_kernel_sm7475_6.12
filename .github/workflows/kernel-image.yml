@@ -155,6 +155,7 @@ jobs:
           CONFIG_PHY_QCOM_QMP_USB=y
           # Plataforma QCOM embutida (GKI deixa p/ modulos; boot precisa on):
           # clocks, pinctrl, SPMI+PMIC, regulators, icc, pon/rtc, watchdog
+          CONFIG_COMMON_CLK_QCOM=y
           CONFIG_SM_GCC_8450=y
           CONFIG_QCOM_CLK_RPMH=y
           CONFIG_PINCTRL_MSM=y
