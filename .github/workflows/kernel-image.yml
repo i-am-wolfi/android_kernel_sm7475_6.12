@@ -111,10 +111,9 @@ jobs:
           echo "=== auditoria de objetos (aviso) ==="
           python3 "$GITHUB_WORKSPACE/scripts/audit-objs.py" || true
           cat > /tmp/marble.fragment <<'EOF'
-          CONFIG_ARCH_DIWALI=y
           CONFIG_ARCH_WAIPIO=y
           # CONFIG_RUST is not set
-          CONFIG_LOCALVERSION="-marble-diwali"
+          CONFIG_LOCALVERSION="-marble-ukee"
           # Sem LTO nos builds de teste (link LTO e lento); ligar so no final
           # CONFIG_LTO_CLANG_THIN is not set
           # CONFIG_LTO_CLANG_FULL is not set
@@ -147,6 +146,9 @@ jobs:
           CONFIG_PHY_QCOM_UFS=y
           CONFIG_PHY_QCOM_UFS_V4=y
           CONFIG_PHY_QCOM_UFS_V4_CAPE=y
+          # USB p/ adb: phys eusb2 + qmp-usb (dwc3 precisa dos dois p/ subir)
+          CONFIG_PHY_QCOM_SNPS_EUSB2=y
+          CONFIG_PHY_QCOM_QMP_USB=y
           # BTF exige pahole novo (dwarves do 22.04 falha com DWARF5 no 6.12:
           # 'Invalid argument'); recovery de teste nao usa BPF CO-RE -> off
           # (volta no final se preciso)
